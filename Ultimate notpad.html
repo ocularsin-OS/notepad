@@ -333,8 +333,14 @@
     background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-size: 13.5px;
     box-shadow: var(--shadow); z-index: 50; opacity: 0; transition: opacity .25s ease; pointer-events: none;
     max-width: 86vw; text-align: center;
+    display: flex; align-items: center; gap: 14px;
   }
+  .toast[hidden] { display: none; }
   .toast.show { opacity: 1; }
+  .toast.actionable { pointer-events: auto; }
+  .toast-action { background: none; border: none; color: var(--accent); font-weight: 700; font-size: 13.5px; cursor: pointer; padding: 0; }
+  .modal-message { white-space: pre-line; }
+  .backup-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 
   @media (min-width: 760px) {
     .menu-btn { display: none; }
@@ -419,6 +425,22 @@
     </div>
     <button id="smartAddToggle" class="toggle-btn" type="button">On</button>
   </div>
+  <div class="toggle-row" style="display:block">
+    <div class="toggle-title">Backup &amp; transfer</div>
+    <div class="toggle-sub">Save everything to a file, or load a file from another device. Loading merges &mdash; the newer copy of any item wins, nothing else is removed.</div>
+    <div class="backup-actions">
+      <button id="exportBtn" class="detail-clear" type="button">Export backup</button>
+      <button id="importBtn" class="detail-clear" type="button">Import backup</button>
+      <input id="importFile" type="file" accept=".json,application/json" hidden />
+    </div>
+  </div>
+  <div class="toggle-row">
+    <div>
+      <div class="toggle-title">Microphone check</div>
+      <div class="toggle-sub">Run this if voice memos won't record</div>
+    </div>
+    <button id="micCheckBtn" class="toggle-btn" type="button">Run</button>
+  </div>
   <button id="closeSettingsBtn" class="close-panel-btn" type="button">Done</button>
 </div>
 
@@ -498,6 +520,10 @@
     swatchGrid: document.getElementById("swatchGrid"),
     smartAddToggle: document.getElementById("smartAddToggle"),
     closeSettingsBtn: document.getElementById("closeSettingsBtn"),
+    exportBtn: document.getElementById("exportBtn"),
+    importBtn: document.getElementById("importBtn"),
+    importFile: document.getElementById("importFile"),
+    micCheckBtn: document.getElementById("micCheckBtn"),
     modalBackdrop: document.getElementById("modalBackdrop"),
     modalPanel: document.getElementById("modalPanel"),
     modalTitle: document.getElementById("modalTitle"),
@@ -556,15 +582,28 @@
   // ---------------- Toast ----------------
 
   var toastTimer = null;
-  function showToast(msg) {
-    els.toast.textContent = msg;
+  function hideToast() {
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+    els.toast.classList.remove("show");
+    els.toast.classList.remove("actionable");
+    setTimeout(function () { if (!els.toast.classList.contains("show")) els.toast.hidden = true; }, 250);
+  }
+  function showToast(msg, actionLabel, onAction, duration) {
+    els.toast.innerHTML = "";
+    var span = document.createElement("span");
+    span.textContent = msg;
+    els.toast.appendChild(span);
+    els.toast.classList.toggle("actionable", !!actionLabel);
+    if (actionLabel) {
+      var btn = document.createElement("button");
+      btn.type = "button"; btn.className = "toast-action"; btn.textContent = actionLabel;
+      btn.addEventListener("click", function () { hideToast(); if (onAction) onAction(); });
+      els.toast.appendChild(btn);
+    }
     els.toast.hidden = false;
     requestAnimationFrame(function () { els.toast.classList.add("show"); });
     if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () {
-      els.toast.classList.remove("show");
-      setTimeout(function () { els.toast.hidden = true; }, 250);
-    }, 3200);
+    toastTimer = setTimeout(hideToast, duration || 3200);
   }
 
   // ---------------- Modal (replaces prompt/alert/confirm) ----------------
@@ -685,13 +724,13 @@
     return {
       onFoldersChange: function (cb) { folderListeners.push(cb); notifyFolders(); return function () { folderListeners = folderListeners.filter(function (f) { return f !== cb; }); }; },
       addFolder: function (name) {
-        var f = { id: makeId("f"), name: name, createdAt: Date.now() };
+        var f = { id: makeId("f"), name: name, createdAt: Date.now(), updatedAt: Date.now() };
         data.folders.push(f); save(data); notifyFolders();
         return Promise.resolve(f.id);
       },
       renameFolder: function (id, name) {
         var f = data.folders.filter(function (x) { return x.id === id; })[0];
-        if (f) { f.name = name; save(data); notifyFolders(); }
+        if (f) { f.name = name; f.updatedAt = Date.now(); save(data); notifyFolders(); }
         return Promise.resolve();
       },
       deleteFolder: function (id) {
@@ -713,18 +752,18 @@
       },
       addNote: function (folderId, text, url, type) {
         var id = makeId("n");
-        data.notes.push({ id: id, folderId: folderId, text: text, done: false, createdAt: Date.now(), dueAt: null, url: url || null, voice: null, color: null, type: type || "task", phone: null, email: null, repeat: null });
+        data.notes.push({ id: id, folderId: folderId, text: text, done: false, createdAt: Date.now(), updatedAt: Date.now(), dueAt: null, url: url || null, voice: null, color: null, type: type || "task", phone: null, email: null, repeat: null });
         save(data); notifyNotes(); notifyAllNotes();
         return Promise.resolve(id);
       },
       toggleNote: function (id, done) {
         var n = data.notes.filter(function (x) { return x.id === id; })[0];
-        if (n) { n.done = done; save(data); notifyNotes(); notifyAllNotes(); }
+        if (n) { n.done = done; n.updatedAt = Date.now(); save(data); notifyNotes(); notifyAllNotes(); }
         return Promise.resolve();
       },
       updateNote: function (id, patch) {
         var n = data.notes.filter(function (x) { return x.id === id; })[0];
-        if (n) { Object.keys(patch).forEach(function (k) { n[k] = patch[k]; }); save(data); notifyNotes(); notifyAllNotes(); }
+        if (n) { Object.keys(patch).forEach(function (k) { n[k] = patch[k]; }); n.updatedAt = Date.now(); save(data); notifyNotes(); notifyAllNotes(); }
         return Promise.resolve();
       },
       deleteNote: function (id) {
@@ -733,7 +772,20 @@
         return Promise.resolve();
       },
       onSettingsChange: function (cb) { settingsListeners.push(cb); cb(settingsData); return function () { settingsListeners = settingsListeners.filter(function (c) { return c !== cb; }); }; },
-      setSettings: function (s) { settingsData = s; saveSettings(s); notifySettings(); return Promise.resolve(); }
+      setSettings: function (s) { settingsData = s; saveSettings(s); notifySettings(); return Promise.resolve(); },
+      upsertFolder: function (f) {
+        var i = data.folders.findIndex(function (x) { return x.id === f.id; });
+        if (i >= 0) data.folders[i] = f; else data.folders.push(f);
+        save(data); notifyFolders();
+        return Promise.resolve();
+      },
+      upsertNote: function (n) {
+        var i = data.notes.findIndex(function (x) { return x.id === n.id; });
+        if (i >= 0) data.notes[i] = n; else data.notes.push(n);
+        save(data); notifyNotes(); notifyAllNotes();
+        return Promise.resolve();
+      },
+      exportAll: function () { return Promise.resolve({ folders: data.folders.slice(), notes: data.notes.slice() }); }
     };
   }
 
@@ -743,8 +795,8 @@
       onFoldersChange: function (cb) {
         return db.collection("folders").orderBy("createdAt", "asc").onSnapshot(function (snap) { cb(snap.docs.map(wrap)); }, function () { cb([]); });
       },
-      addFolder: function (name) { return db.collection("folders").add({ name: name, createdAt: Date.now() }).then(function (ref) { return ref.id; }); },
-      renameFolder: function (id, name) { return db.doc("folders/" + id).update({ name: name }); },
+      addFolder: function (name) { return db.collection("folders").add({ name: name, createdAt: Date.now(), updatedAt: Date.now() }).then(function (ref) { return ref.id; }); },
+      renameFolder: function (id, name) { return db.doc("folders/" + id).update({ name: name, updatedAt: Date.now() }); },
       deleteFolder: function (id) {
         return db.collection("notes").where("folderId", "==", id).get().then(function (snap) {
           return Promise.all(snap.docs.map(function (d) { return db.doc("notes/" + d.id).delete(); }));
@@ -757,10 +809,10 @@
         return db.collection("notes").orderBy("createdAt", "asc").onSnapshot(function (snap) { cb(snap.docs.map(wrap)); }, function () { cb([]); });
       },
       addNote: function (folderId, text, url, type) {
-        return db.collection("notes").add({ folderId: folderId, text: text, done: false, createdAt: Date.now(), dueAt: null, url: url || null, voice: null, color: null, type: type || "task", phone: null, email: null, repeat: null }).then(function (ref) { return ref.id; });
+        return db.collection("notes").add({ folderId: folderId, text: text, done: false, createdAt: Date.now(), updatedAt: Date.now(), dueAt: null, url: url || null, voice: null, color: null, type: type || "task", phone: null, email: null, repeat: null }).then(function (ref) { return ref.id; });
       },
-      toggleNote: function (id, done) { return db.doc("notes/" + id).update({ done: done }); },
-      updateNote: function (id, patch) { return db.doc("notes/" + id).update(patch); },
+      toggleNote: function (id, done) { return db.doc("notes/" + id).update({ done: done, updatedAt: Date.now() }); },
+      updateNote: function (id, patch) { return db.doc("notes/" + id).update(Object.assign({}, patch, { updatedAt: Date.now() })); },
       deleteNote: function (id) { return db.doc("notes/" + id).delete(); },
       onSettingsChange: function (cb) {
         return db.doc("settings/app").onSnapshot(function (snap) {
@@ -768,7 +820,14 @@
           cb(Object.assign({ themeId: "brass", smartAdd: true }, data));
         }, function () { cb({ themeId: "brass", smartAdd: true }); });
       },
-      setSettings: function (settings) { return db.doc("settings/app").set(settings); }
+      setSettings: function (settings) { return db.doc("settings/app").set(settings); },
+      upsertFolder: function (f) { var d = Object.assign({}, f); delete d.id; return db.doc("folders/" + f.id).set(d); },
+      upsertNote: function (n) { var d = Object.assign({}, n); delete d.id; return db.doc("notes/" + n.id).set(d); },
+      exportAll: function () {
+        return Promise.all([db.collection("folders").get(), db.collection("notes").get()]).then(function (r) {
+          return { folders: r[0].docs.map(wrap), notes: r[1].docs.map(wrap) };
+        });
+      }
     };
   }
 
@@ -793,13 +852,20 @@
     return m + "m";
   }
   function truncateLabel(s, n) { return s.length > n ? s.slice(0, n - 1) + "\u2026" : s; }
-  function advanceDate(ms, freq, interval) {
+  function advanceDate(ms, freq, interval, anchorDay) {
     var n = interval || 1;
     var d = new Date(ms);
-    if (freq === "daily") d.setDate(d.getDate() + n);
-    else if (freq === "weekly") d.setDate(d.getDate() + n * 7);
-    else if (freq === "monthly") d.setMonth(d.getMonth() + n);
-    else if (freq === "yearly") d.setFullYear(d.getFullYear() + n);
+    if (freq === "daily") { d.setDate(d.getDate() + n); return d.getTime(); }
+    if (freq === "weekly") { d.setDate(d.getDate() + n * 7); return d.getTime(); }
+    if (freq === "monthly" || freq === "yearly") {
+      var day = anchorDay || d.getDate();
+      var y = d.getFullYear() + (freq === "yearly" ? n : 0);
+      var m = d.getMonth() + (freq === "monthly" ? n : 0);
+      var target = new Date(y, m, 1, d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
+      var daysInMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+      target.setDate(Math.min(day, daysInMonth));
+      return target.getTime();
+    }
     return d.getTime();
   }
   function repeatLabel(repeat) {
@@ -857,7 +923,7 @@
       return;
     }
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
-      var mimeCandidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/aac"];
+      var mimeCandidates = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/aac"];
       var mimeType = "";
       for (var i = 0; i < mimeCandidates.length; i++) { if (MediaRecorder.isTypeSupported(mimeCandidates[i])) { mimeType = mimeCandidates[i]; break; } }
       var options = { audioBitsPerSecond: 32000 };
@@ -873,7 +939,7 @@
         var wasNoteId = state.activeRecording ? state.activeRecording.noteId : noteId;
         state.activeRecording = null;
         renderNotes();
-        if (!chunks.length) return;
+        if (!chunks.length) { showToast("Nothing was recorded \u2014 try again, or run the Mic check in Settings.", null, null, 6000); return; }
         var blob = new Blob(chunks, { type: recorder.mimeType || mimeType || "audio/webm" });
         var reader = new FileReader();
         reader.onload = function () {
@@ -899,8 +965,66 @@
       state.recordTimeout = setTimeout(function () {
         if (state.activeRecording && state.activeRecording.recorder.state !== "inactive") state.activeRecording.recorder.stop();
       }, 15000);
-    }).catch(function () {
-      showToast("Couldn't access the microphone. Check your browser or site permissions and try again.");
+    }).catch(function (err) {
+      showToast(micErrorMessage(err), null, null, 7000);
+    });
+  }
+
+  function micPolicyAllows() {
+    try {
+      var pol = document.permissionsPolicy || document.featurePolicy;
+      if (pol && typeof pol.allowsFeature === "function") return pol.allowsFeature("microphone");
+    } catch (e) {}
+    return null;
+  }
+
+  function micErrorMessage(err) {
+    var name = err && err.name;
+    if (name === "NotAllowedError") {
+      return micPolicyAllows() === false
+        ? "This page isn't allowed to use the microphone where it's hosted. Run the Mic check in Settings."
+        : "Microphone permission was denied. Allow it in your browser's site settings, then try again.";
+    }
+    if (name === "NotFoundError") return "No microphone was found on this device.";
+    if (name === "NotReadableError") return "The microphone is busy in another app. Close that app and try again.";
+    if (name === "SecurityError") return "The browser blocked microphone access on this page.";
+    return "Couldn't start recording (" + (name || "unknown error") + "). Run the Mic check in Settings.";
+  }
+
+  function runMicCheck() {
+    var lines = [];
+    var liveTest = (navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+      ? navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+          stream.getTracks().forEach(function (t) { t.stop(); });
+          return "Live test: microphone opened OK";
+        }, function (err) { return "Live test: FAILED (" + ((err && err.name) || "unknown") + ")"; })
+      : Promise.resolve("Live test: skipped (no recording API)");
+
+    lines.push("Secure page (HTTPS): " + (window.isSecureContext ? "yes" : "NO"));
+    lines.push("Running inside an embedded frame: " + (window.self !== window.top ? "yes" : "no"));
+    var pol = micPolicyAllows();
+    lines.push("Frame allows microphone: " + (pol === null ? "unknown" : (pol ? "yes" : "NO")));
+    lines.push("Recording API: " + ((navigator.mediaDevices && navigator.mediaDevices.getUserMedia) ? "yes" : "NO"));
+    lines.push("Recorder: " + (window.MediaRecorder ? "yes" : "NO"));
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported) {
+      var fmts = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/aac"].filter(function (t) {
+        try { return MediaRecorder.isTypeSupported(t); } catch (e) { return false; }
+      });
+      lines.push("Formats: " + (fmts.join(", ") || "none"));
+    }
+
+    var permCheck = (navigator.permissions && navigator.permissions.query)
+      ? navigator.permissions.query({ name: "microphone" }).then(function (r) { return "Browser permission: " + r.state; }, function () { return "Browser permission: unknown"; })
+      : Promise.resolve("Browser permission: unknown");
+
+    Promise.all([permCheck, liveTest]).then(function (extra) {
+      lines = lines.concat(extra);
+      openModal({
+        title: "Microphone check",
+        message: lines.join("\n") + "\n\nIf recording still fails, screenshot this and send it to Claude.",
+        confirmText: "Done",
+        noCancel: true
+      });
     });
   }
 
@@ -1001,6 +1125,23 @@
   function buildNoteDetail(n) {
     var wrap = document.createElement("div");
     wrap.className = "note-detail";
+    var textField = document.createElement("div");
+    textField.className = "detail-field";
+    var textLabel = document.createElement("label"); textLabel.textContent = "Task";
+    var textRow = document.createElement("div"); textRow.className = "detail-row";
+    var textInput = document.createElement("input");
+    textInput.type = "text"; textInput.maxLength = 500; textInput.value = n.text;
+    textInput.addEventListener("focus", function () { state.editingNoteId = n.id; });
+    textInput.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); textInput.blur(); } });
+    textInput.addEventListener("blur", function () {
+      var v = textInput.value.trim();
+      if (!v) textInput.value = n.text;
+      else if (v !== n.text) store.updateNote(n.id, { text: v });
+      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(renderNotes, 50); }
+    });
+    textRow.appendChild(textInput);
+    textField.appendChild(textLabel); textField.appendChild(textRow);
+    wrap.appendChild(textField);
     wrap.appendChild(buildColorField(n, "Task color"));
 
     var dueField = document.createElement("div");
@@ -1014,7 +1155,11 @@
     dueInput.addEventListener("blur", function () {
       if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(renderNotes, 50); }
     });
-    dueInput.addEventListener("change", function () { store.updateNote(n.id, { dueAt: fromLocalInputValue(dueInput.value) }); });
+    dueInput.addEventListener("change", function () {
+      var patch = { dueAt: fromLocalInputValue(dueInput.value) };
+      if (n.repeat && n.repeat.freq) patch.repeat = { freq: n.repeat.freq, interval: n.repeat.interval || 1 };
+      store.updateNote(n.id, patch);
+    });
     dueRow.appendChild(dueInput);
     if (n.dueAt) {
       var clearDue = document.createElement("button");
@@ -1185,10 +1330,17 @@
       delVoice.addEventListener("click", function () { store.updateNote(n.id, { voice: null }); });
       voiceRow.appendChild(delVoice);
     } else {
-      var recBtn = document.createElement("button");
-      recBtn.type = "button"; recBtn.className = "record-btn"; recBtn.textContent = "\u25CF Record (15s max)";
-      recBtn.addEventListener("click", function () { startRecording(n.id); });
-      voiceRow.appendChild(recBtn);
+      if (micPolicyAllows() === false) {
+        var micNote = document.createElement("span");
+        micNote.className = "toggle-sub";
+        micNote.textContent = "Recording isn't available in this hosted version. It works in the standalone (GitHub) version and the app.";
+        voiceRow.appendChild(micNote);
+      } else {
+        var recBtn = document.createElement("button");
+        recBtn.type = "button"; recBtn.className = "record-btn"; recBtn.textContent = "\u25CF Record (15s max)";
+        recBtn.addEventListener("click", function () { startRecording(n.id); });
+        voiceRow.appendChild(recBtn);
+      }
     }
     voiceField.appendChild(voiceLabel); voiceField.appendChild(voiceRow);
 
@@ -1226,9 +1378,11 @@
         var newDone = !n.done;
         store.toggleNote(n.id, newDone);
         if (newDone && n.repeat && n.repeat.freq && n.dueAt) {
-          var nextDue = advanceDate(n.dueAt, n.repeat.freq, n.repeat.interval);
+          var anchorDay = n.repeat.anchorDay || new Date(n.dueAt).getDate();
+          var nextDue = advanceDate(n.dueAt, n.repeat.freq, n.repeat.interval, anchorDay);
+          var nextRepeat = { freq: n.repeat.freq, interval: n.repeat.interval || 1, anchorDay: anchorDay };
           store.addNote(n.folderId, n.text, n.url, n.type || "task").then(function (id) {
-            if (id) store.updateNote(id, { dueAt: nextDue, color: n.color || null, repeat: n.repeat, phone: n.phone || null, email: n.email || null });
+            if (id) store.updateNote(id, { dueAt: nextDue, color: n.color || null, repeat: nextRepeat, phone: n.phone || null, email: n.email || null });
           });
         }
       });
@@ -1305,7 +1459,14 @@
     del.className = "note-del";
     del.setAttribute("aria-label", isNote ? "Delete note" : "Delete task");
     del.textContent = "\u00D7";
-    del.addEventListener("click", function (ev) { ev.stopPropagation(); store.deleteNote(n.id); });
+    del.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      var snapshot = Object.assign({}, n);
+      delete state.expandedIds[n.id];
+      store.deleteNote(n.id).then(function () {
+        showToast((isNote ? "Note" : "Task") + " deleted", "Undo", function () { store.upsertNote(snapshot); }, 6000);
+      });
+    });
 
     main.appendChild(content);
     main.appendChild(del);
@@ -1870,6 +2031,104 @@
   els.settingsBackdrop.addEventListener("click", closeSettingsPanel);
   els.closeSettingsBtn.addEventListener("click", closeSettingsPanel);
   els.smartAddToggle.addEventListener("click", function () { store.setSettings(Object.assign({}, state.settings, { smartAdd: !state.settings.smartAdd })); });
+
+  // ---------------- Backup: export / import (merge) ----------------
+
+  var downloadsPromise = null;
+  function getDownloads() {
+    if (!downloadsPromise) {
+      downloadsPromise = (window.claude && typeof window.claude.use === "function")
+        ? window.claude.use("downloads").catch(function () { return null; })
+        : Promise.resolve(null);
+    }
+    return downloadsPromise;
+  }
+
+  function backupFilename() {
+    var d = new Date();
+    var pad = function (x) { return (x < 10 ? "0" : "") + x; };
+    return "notepad-backup-" + d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + ".json";
+  }
+
+  function exportBackup() {
+    store.exportAll().then(function (all) {
+      var json = JSON.stringify({
+        app: "notepad", version: 1, exportedAt: new Date().toISOString(),
+        folders: all.folders, notes: all.notes, settings: state.settings
+      });
+      var filename = backupFilename();
+      return getDownloads().then(function (downloads) {
+        if (downloads) {
+          return downloads.save({ filename: filename, data: json }).then(function () {
+            showToast("Backup saved");
+          }, function (err) {
+            var code = err && err.code;
+            if (code === "declined") return;
+            if (code === "rate_limited") { showToast("A save prompt is already open."); return; }
+            showToast("Couldn't save the backup here (" + (code || "error") + ").");
+          });
+        }
+        var blob = new Blob([json], { type: "application/json" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+        showToast("Backup saved");
+      });
+    }).catch(function () { showToast("Couldn't read your data to export."); });
+  }
+
+  function itemStamp(x) { return (x && (x.updatedAt || x.createdAt)) || 0; }
+
+  function mergeBackup(backup) {
+    return store.exportAll().then(function (cur) {
+      var curFolders = {}, curNotes = {}, knownFolderIds = {};
+      cur.folders.forEach(function (f) { curFolders[f.id] = f; knownFolderIds[f.id] = true; });
+      cur.notes.forEach(function (n) { curNotes[n.id] = n; });
+
+      var ops = [], added = 0, updated = 0;
+      backup.folders.forEach(function (f) {
+        if (!f || typeof f.id !== "string" || typeof f.name !== "string") return;
+        knownFolderIds[f.id] = true;
+        var existing = curFolders[f.id];
+        if (!existing) { added++; ops.push(function () { return store.upsertFolder(f); }); }
+        else if (itemStamp(f) > itemStamp(existing)) { updated++; ops.push(function () { return store.upsertFolder(f); }); }
+      });
+      backup.notes.forEach(function (n) {
+        if (!n || typeof n.id !== "string" || typeof n.text !== "string" || !knownFolderIds[n.folderId]) return;
+        var existing = curNotes[n.id];
+        if (!existing) { added++; ops.push(function () { return store.upsertNote(n); }); }
+        else if (itemStamp(n) > itemStamp(existing)) { updated++; ops.push(function () { return store.upsertNote(n); }); }
+      });
+
+      return ops.reduce(function (p, op) { return p.then(op); }, Promise.resolve()).then(function () {
+        return { added: added, updated: updated };
+      });
+    });
+  }
+
+  els.exportBtn.addEventListener("click", exportBackup);
+  els.importBtn.addEventListener("click", function () { els.importFile.value = ""; els.importFile.click(); });
+  els.importFile.addEventListener("change", function () {
+    var file = els.importFile.files && els.importFile.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var backup;
+      try { backup = JSON.parse(reader.result); } catch (e) { showToast("That file isn't a valid backup."); return; }
+      if (!backup || !Array.isArray(backup.folders) || !Array.isArray(backup.notes)) { showToast("That file isn't a notepad backup."); return; }
+      showToast("Importing\u2026", null, null, 20000);
+      mergeBackup(backup).then(function (r) {
+        if (!r.added && !r.updated) showToast("Everything in that backup is already here.");
+        else showToast("Import done: " + r.added + " added, " + r.updated + " updated", null, null, 4500);
+      }).catch(function () { showToast("Import stopped partway \u2014 some items may not have loaded."); });
+    };
+    reader.onerror = function () { showToast("Couldn't read that file."); };
+    reader.readAsText(file);
+  });
+
+  els.micCheckBtn.addEventListener("click", function () { closeSettingsPanel(); runMicCheck(); });
   els.dialBtn.addEventListener("click", function () { setViewMode(state.viewMode === "dial" ? "list" : "dial"); });
 
   // ---------------- Sidebar toggle ----------------
