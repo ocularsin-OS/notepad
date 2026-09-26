@@ -79,6 +79,24 @@
     color: var(--text); cursor: pointer; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .folder-row.active .folder-btn { color: var(--accent); font-weight: 600; }
+  .folder-caret {
+    width: 22px; flex-shrink: 0; background: none; border: none; color: var(--text-dim);
+    font-size: 11px; cursor: pointer; padding: 8px 0; border-radius: 6px;
+  }
+  .folder-caret.empty { visibility: hidden; }
+  .folder-add-sub {
+    background: none; border: none; color: var(--text-dim); font-size: 17px; line-height: 1;
+    padding: 6px 10px; cursor: pointer; border-radius: 8px; opacity: 0.55;
+  }
+  .folder-add-sub:hover { opacity: 1; background: var(--border); color: var(--accent); }
+  .subfolder-strip { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 4px 10px; }
+  .subfolder-strip[hidden] { display: none; }
+  .subfolder-chip {
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 10px;
+    padding: 7px 12px; font-size: 13.5px; cursor: pointer;
+  }
+  .subfolder-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .folder-crumb { color: var(--text-dim); font-weight: 500; }
   .new-folder-btn {
     margin: 10px 14px 0; background: none; border: 1px dashed var(--border); color: var(--text-dim);
     padding: 10px 12px; border-radius: 9px; font-size: 14px; cursor: pointer; text-align: left;
@@ -336,10 +354,94 @@
     display: flex; align-items: center; gap: 14px;
   }
   .toast[hidden] { display: none; }
+
+  .reminder-stack {
+    position: fixed; z-index: 45; left: 50%; transform: translateX(-50%);
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    width: 380px; max-width: 92vw; display: flex; flex-direction: column; gap: 8px;
+  }
+  .reminder-stack[hidden] { display: none; }
+  .reminder-card {
+    background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--danger);
+    border-radius: 12px; box-shadow: var(--shadow); padding: 12px 14px;
+  }
+  .reminder-title { font-size: 12px; color: var(--danger); font-weight: 700; letter-spacing: 0.02em; margin-bottom: 3px; }
+  .reminder-text { font-size: 15px; font-weight: 600; word-break: break-word; }
+  .reminder-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .settings-select {
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    border-radius: 8px; padding: 6px 8px; font-size: 13.5px; flex-shrink: 0;
+  }
   .toast.show { opacity: 1; }
   .toast.actionable { pointer-events: auto; }
   .toast-action { background: none; border: none; color: var(--accent); font-weight: 700; font-size: 13.5px; cursor: pointer; padding: 0; }
   .modal-message { white-space: pre-line; }
+  .icon-btn[hidden] { display: none; }
+  .dial-face-toggle { display: flex; gap: 4px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 999px; padding: 3px; margin-bottom: 14px; }
+  .dial-face-toggle button { border: none; background: none; padding: 6px 18px; border-radius: 999px; font-size: 13px; color: var(--text-dim); cursor: pointer; }
+  .dial-face-toggle button.active { background: var(--accent); color: var(--surface); font-weight: 600; }
+  .dial-tasks-btn { margin-top: 12px; }
+  .dial-tasks-btn[hidden] { display: none; }
+  .balance-panel { width: 100%; max-width: 340px; margin-top: 14px; }
+  .balance-panel[hidden] { display: none; }
+  .balance-row { display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-bottom: 1px solid var(--border); cursor: pointer; border-radius: 8px; }
+  .balance-row.selected { background: var(--accent-soft); }
+  .balance-name { flex: 1; font-size: 14px; }
+  .balance-num { font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .balance-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
+  .checkin-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+  .checkin-row label { flex: 1; font-size: 14px; }
+  .checkin-row input[type="range"] { flex: 1.3; accent-color: var(--accent); min-width: 0; }
+  .checkin-val { width: 22px; text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .setup-section { margin-top: 16px; }
+  .setup-section h3 { font-size: 12.5px; color: var(--text-dim); font-weight: 600; margin: 0 0 8px; }
+  .setup-row { display: flex; gap: 8px; align-items: center; padding: 4px 0; }
+  .setup-row input[type="text"] { flex: 1; min-width: 0; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 8px 10px; font-size: 14px; outline: none; }
+  .setup-row input[type="text"]:focus { border-color: var(--accent); }
+  .setup-row .settings-select { max-width: 55%; }
+  .setup-folder-name { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .move-list { max-height: 55vh; overflow-y: auto; margin: 0 -6px 12px; }
+  .move-row {
+    display: block; width: 100%; text-align: left; background: none; border: none; color: var(--text);
+    font-size: 15px; padding: 10px 10px; border-radius: 9px; cursor: pointer;
+  }
+  .move-row:hover { background: var(--accent-soft); }
+  .move-row.current { color: var(--text-dim); cursor: default; }
+  .move-row.current:hover { background: none; }
+  .move-here { font-size: 12px; margin-left: 6px; }
+  .detail-move-row { display: flex; }
+
+  .ai-panel {
+    position: fixed; z-index: 42; top: 0; right: 0; bottom: 0; width: 420px; max-width: 100vw;
+    background: var(--bg); border-left: 1px solid var(--border); box-shadow: var(--shadow);
+    display: flex; flex-direction: column;
+    padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .ai-panel[hidden] { display: none; }
+  .ai-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 10px 16px; border-bottom: 1px solid var(--border); }
+  .ai-head-title { flex: 1; font-size: 16px; font-weight: 650; }
+  .ai-msgs { flex: 1; overflow-y: auto; padding: 14px 14px 6px; display: flex; flex-direction: column; gap: 10px; }
+  .ai-msg { max-width: 88%; padding: 10px 13px; border-radius: 14px; font-size: 14.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+  .ai-msg.user { align-self: flex-end; background: var(--accent); color: var(--surface); border-bottom-right-radius: 4px; }
+  .ai-msg.assistant { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .ai-msg.error { align-self: flex-start; background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); }
+  .ai-thinking { color: var(--text-dim); font-style: italic; }
+  .ai-intro { color: var(--text-dim); font-size: 14px; line-height: 1.5; padding: 4px 2px 8px; }
+  .ai-suggest { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ai-suggest button { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 999px; padding: 7px 12px; font-size: 13px; cursor: pointer; }
+  .ai-suggest button:hover { border-color: var(--accent); color: var(--accent); }
+  .ai-actions { align-self: flex-start; width: 88%; display: flex; flex-direction: column; gap: 6px; }
+  .ai-action-card { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px dashed var(--accent); border-radius: 12px; padding: 9px 11px; }
+  .ai-action-text { flex: 1; font-size: 13.5px; }
+  .ai-action-sub { display: block; font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .ai-action-card.applied { border-style: solid; border-color: var(--border); opacity: 0.7; }
+  .ai-input-row { display: flex; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--border); align-items: flex-end; }
+  .ai-input-row textarea {
+    flex: 1; resize: none; max-height: 120px; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    border-radius: 12px; padding: 10px 12px; font-size: 15px; font-family: inherit; outline: none;
+  }
+  .ai-input-row textarea:focus { border-color: var(--accent); }
+  .ai-input-row .add-btn { height: 42px; }
   .backup-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 
   @media (min-width: 760px) {
@@ -364,6 +466,7 @@
     <header class="main-header">
       <button id="menuBtn" class="icon-btn menu-btn" aria-label="Folders">&#9776;</button>
       <h1 id="folderTitle">Notepad</h1>
+      <button id="aiBtn" class="icon-btn" aria-label="Assistant" title="Assistant" hidden>&#10024;</button>
       <button id="dialBtn" class="icon-btn" aria-label="Today, on the dial" title="Today, on the dial">&#128368;</button>
       <button id="calBtn" class="icon-btn" aria-label="Calendar" title="Calendar">&#128197;</button>
       <button id="settingsBtn" class="icon-btn" aria-label="Settings" title="Settings">&#9881;</button>
@@ -371,6 +474,7 @@
     </header>
     <div id="syncNote" class="sync-note" hidden>Sync isn't available in this view &mdash; changes stay on this device only.</div>
 
+    <div id="subfolderStrip" class="subfolder-strip" hidden></div>
     <div id="filterTabs" class="filter-tabs">
       <button class="filter-tab active" data-filter="all" type="button">All</button>
       <button class="filter-tab" data-filter="task" type="button">Tasks</button>
@@ -393,11 +497,16 @@
     <p id="emptyState" class="empty-state" hidden>Nothing here yet &mdash; add your first task above.</p>
 
     <section id="dialView" class="dial-wrap" hidden>
+      <div id="dialFaceToggle" class="dial-face-toggle" role="group" aria-label="Dial face">
+        <button type="button" data-face="time" class="active">Time</button>
+        <button type="button" data-face="balance">Balance</button>
+      </div>
       <svg id="dialSvg" class="dial-svg" viewBox="0 0 300 300" role="img" aria-label="Today's tasks on a 24-hour dial"></svg>
       <p class="dial-caption" id="dialCaption"></p>
       <p class="dial-caption dial-sub" id="dialSubCaption"></p>
       <p class="dial-caption dial-sub" id="dialCalendarNote" hidden>Calendar not connected &mdash; showing tasks only</p>
       <div id="dialTaskListWrap" class="dial-task-list" hidden></div>
+      <div id="balancePanel" class="balance-panel" hidden></div>
     </section>
 
     <section id="calendarView" class="calendar-wrap" hidden>
@@ -441,6 +550,28 @@
     </div>
     <button id="micCheckBtn" class="toggle-btn" type="button">Run</button>
   </div>
+  <div class="toggle-row">
+    <div>
+      <div class="toggle-title">Reminders</div>
+      <div class="toggle-sub">Default alert before a task is due</div>
+    </div>
+    <select id="remindLeadSelect" class="settings-select">
+      <option value="-1">Off</option>
+      <option value="0">At due time</option>
+      <option value="5">5 min before</option>
+      <option value="15">15 min before</option>
+      <option value="30">30 min before</option>
+      <option value="60">1 hour before</option>
+      <option value="1440">1 day before</option>
+    </select>
+  </div>
+  <div class="toggle-row" id="notifyRow">
+    <div>
+      <div class="toggle-title">System notifications</div>
+      <div class="toggle-sub" id="notifySub">Also alert through your browser</div>
+    </div>
+    <button id="notifyBtn" class="toggle-btn" type="button">Allow</button>
+  </div>
   <button id="closeSettingsBtn" class="close-panel-btn" type="button">Done</button>
 </div>
 
@@ -456,7 +587,31 @@
   </div>
 </div>
 
+<div id="balanceBackdrop" class="backdrop"></div>
+<div id="balanceSheet" class="overlay-panel" hidden><div id="balanceSheetBody"></div></div>
+<div id="moveBackdrop" class="backdrop"></div>
+<div id="movePanel" class="overlay-panel" hidden>
+  <h2 id="moveTitle" class="panel-title">Move to&hellip;</h2>
+  <div id="moveList" class="move-list"></div>
+  <div class="modal-actions">
+    <button id="moveCancelBtn" class="modal-btn cancel" type="button">Cancel</button>
+  </div>
+</div>
+<div id="aiBackdrop" class="backdrop"></div>
+<aside id="aiPanel" class="ai-panel" hidden aria-label="Assistant">
+  <div class="ai-head">
+    <span class="ai-head-title">&#10024; Assistant</span>
+    <button id="aiNewBtn" class="detail-clear" type="button">New chat</button>
+    <button id="aiCloseBtn" class="icon-btn" type="button" aria-label="Close assistant">&times;</button>
+  </div>
+  <div id="aiMsgs" class="ai-msgs"></div>
+  <div class="ai-input-row">
+    <textarea id="aiInput" rows="1" maxlength="4000" placeholder="Ask about your tasks and notes&hellip;"></textarea>
+    <button id="aiSendBtn" class="add-btn" type="button" aria-label="Send">&#8593;</button>
+  </div>
+</aside>
 <div id="toast" class="toast" hidden></div>
+<div id="reminderStack" class="reminder-stack" hidden></div>
 
 <script>
 (function () {
@@ -524,6 +679,29 @@
     importBtn: document.getElementById("importBtn"),
     importFile: document.getElementById("importFile"),
     micCheckBtn: document.getElementById("micCheckBtn"),
+    subfolderStrip: document.getElementById("subfolderStrip"),
+    aiBtn: document.getElementById("aiBtn"),
+    aiPanel: document.getElementById("aiPanel"),
+    aiBackdrop: document.getElementById("aiBackdrop"),
+    aiMsgs: document.getElementById("aiMsgs"),
+    aiInput: document.getElementById("aiInput"),
+    aiSendBtn: document.getElementById("aiSendBtn"),
+    aiNewBtn: document.getElementById("aiNewBtn"),
+    aiCloseBtn: document.getElementById("aiCloseBtn"),
+    moveBackdrop: document.getElementById("moveBackdrop"),
+    dialFaceToggle: document.getElementById("dialFaceToggle"),
+    balancePanel: document.getElementById("balancePanel"),
+    balanceBackdrop: document.getElementById("balanceBackdrop"),
+    balanceSheet: document.getElementById("balanceSheet"),
+    balanceSheetBody: document.getElementById("balanceSheetBody"),
+    movePanel: document.getElementById("movePanel"),
+    moveTitle: document.getElementById("moveTitle"),
+    moveList: document.getElementById("moveList"),
+    moveCancelBtn: document.getElementById("moveCancelBtn"),
+    reminderStack: document.getElementById("reminderStack"),
+    remindLeadSelect: document.getElementById("remindLeadSelect"),
+    notifyBtn: document.getElementById("notifyBtn"),
+    notifySub: document.getElementById("notifySub"),
     modalBackdrop: document.getElementById("modalBackdrop"),
     modalPanel: document.getElementById("modalPanel"),
     modalTitle: document.getElementById("modalTitle"),
@@ -542,7 +720,7 @@
     autoCreatedDefault: false,
     viewMode: "list",
     expandedIds: {},
-    settings: { themeId: "brass", smartAdd: true },
+    settings: { themeId: "brass", smartAdd: true, remindLead: 15 },
     allNotesForDial: [],
     unsubAllNotes: null,
     dialInterval: null,
@@ -551,12 +729,18 @@
     recordDisplayInterval: null,
     editingNoteId: null,
     dialTasksExpanded: false,
+    dialFace: "time",
+    balanceSelected: null,
+    balanceEvents: [],
+    balanceGCalStatus: "loading",
+    unsubBalanceGCal: null,
     gcalEvents: [],
     gcalStatus: "loading",
     unsubGCal: null,
     calendarViewMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     calendarSelectedDate: new Date().toDateString(),
     listFilter: "all",
+    collapsedFolders: {},
     addType: "task"
   };
 
@@ -694,7 +878,7 @@
     var SETTINGS_KEY = "notepad_settings_v1";
     function load() { try { var raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw); } catch (e) {} return { folders: [], notes: [] }; }
     function save(d) { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {} }
-    function loadSettings() { try { var raw = localStorage.getItem(SETTINGS_KEY); if (raw) return JSON.parse(raw); } catch (e) {} return { themeId: "brass", smartAdd: true }; }
+    function loadSettings() { try { var raw = localStorage.getItem(SETTINGS_KEY); if (raw) return JSON.parse(raw); } catch (e) {} return { themeId: "brass", smartAdd: true, remindLead: 15 }; }
     function saveSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {} }
 
     var data = load();
@@ -723,8 +907,8 @@
 
     return {
       onFoldersChange: function (cb) { folderListeners.push(cb); notifyFolders(); return function () { folderListeners = folderListeners.filter(function (f) { return f !== cb; }); }; },
-      addFolder: function (name) {
-        var f = { id: makeId("f"), name: name, createdAt: Date.now(), updatedAt: Date.now() };
+      addFolder: function (name, parentId) {
+        var f = { id: makeId("f"), name: name, parentId: parentId || null, createdAt: Date.now(), updatedAt: Date.now() };
         data.folders.push(f); save(data); notifyFolders();
         return Promise.resolve(f.id);
       },
@@ -789,42 +973,47 @@
     };
   }
 
-  function makeDbStore(db) {
+  function makeDbStore(db, uid) {
+    // Everything lives under this viewer's private subtree: data/users/<uid>/...
+    var base = "data/users/" + uid;
+    function col(name) { return db.collection(base + "/app/" + name); }
+    function doc(name, id) { return db.doc(base + "/app/" + name + "/" + id); }
+    var settingsDoc = db.doc(base + "/settings");
     function wrap(d) { return Object.assign({ id: d.id }, d.data()); }
     return {
       onFoldersChange: function (cb) {
-        return db.collection("folders").orderBy("createdAt", "asc").onSnapshot(function (snap) { cb(snap.docs.map(wrap)); }, function () { cb([]); });
+        return col("folders").orderBy("createdAt", "asc").onSnapshot(function (snap) { cb(snap.docs.map(wrap)); }, function () { cb([]); });
       },
-      addFolder: function (name) { return db.collection("folders").add({ name: name, createdAt: Date.now(), updatedAt: Date.now() }).then(function (ref) { return ref.id; }); },
-      renameFolder: function (id, name) { return db.doc("folders/" + id).update({ name: name, updatedAt: Date.now() }); },
+      addFolder: function (name, parentId) { return col("folders").add({ name: name, parentId: parentId || null, createdAt: Date.now(), updatedAt: Date.now() }).then(function (ref) { return ref.id; }); },
+      renameFolder: function (id, name) { return doc("folders", id).update({ name: name, updatedAt: Date.now() }); },
       deleteFolder: function (id) {
-        return db.collection("notes").where("folderId", "==", id).get().then(function (snap) {
-          return Promise.all(snap.docs.map(function (d) { return db.doc("notes/" + d.id).delete(); }));
-        }).then(function () { return db.doc("folders/" + id).delete(); });
+        return col("notes").where("folderId", "==", id).get().then(function (snap) {
+          return Promise.all(snap.docs.map(function (d) { return doc("notes", d.id).delete(); }));
+        }).then(function () { return doc("folders", id).delete(); });
       },
       onNotesChange: function (folderId, cb) {
-        return db.collection("notes").where("folderId", "==", folderId).orderBy("createdAt", "asc").onSnapshot(function (snap) { cb(snap.docs.map(wrap)); }, function () { cb([]); });
+        return col("notes").where("folderId", "==", folderId).orderBy("createdAt", "asc").onSnapshot(function (snap) { cb(snap.docs.map(wrap)); }, function () { cb([]); });
       },
       onAllNotesChange: function (cb) {
-        return db.collection("notes").orderBy("createdAt", "asc").onSnapshot(function (snap) { cb(snap.docs.map(wrap)); }, function () { cb([]); });
+        return col("notes").orderBy("createdAt", "asc").onSnapshot(function (snap) { cb(snap.docs.map(wrap)); }, function () { cb([]); });
       },
       addNote: function (folderId, text, url, type) {
-        return db.collection("notes").add({ folderId: folderId, text: text, done: false, createdAt: Date.now(), updatedAt: Date.now(), dueAt: null, url: url || null, voice: null, color: null, type: type || "task", phone: null, email: null, repeat: null }).then(function (ref) { return ref.id; });
+        return col("notes").add({ folderId: folderId, text: text, done: false, createdAt: Date.now(), updatedAt: Date.now(), dueAt: null, url: url || null, voice: null, color: null, type: type || "task", phone: null, email: null, repeat: null }).then(function (ref) { return ref.id; });
       },
-      toggleNote: function (id, done) { return db.doc("notes/" + id).update({ done: done, updatedAt: Date.now() }); },
-      updateNote: function (id, patch) { return db.doc("notes/" + id).update(Object.assign({}, patch, { updatedAt: Date.now() })); },
-      deleteNote: function (id) { return db.doc("notes/" + id).delete(); },
+      toggleNote: function (id, done) { return doc("notes", id).update({ done: done, updatedAt: Date.now() }); },
+      updateNote: function (id, patch) { return doc("notes", id).update(Object.assign({}, patch, { updatedAt: Date.now() })); },
+      deleteNote: function (id) { return doc("notes", id).delete(); },
       onSettingsChange: function (cb) {
-        return db.doc("settings/app").onSnapshot(function (snap) {
+        return settingsDoc.onSnapshot(function (snap) {
           var data = snap.exists ? snap.data() : {};
-          cb(Object.assign({ themeId: "brass", smartAdd: true }, data));
-        }, function () { cb({ themeId: "brass", smartAdd: true }); });
+          cb(Object.assign({ themeId: "brass", smartAdd: true, remindLead: 15 }, data));
+        }, function () { cb({ themeId: "brass", smartAdd: true, remindLead: 15 }); });
       },
-      setSettings: function (settings) { return db.doc("settings/app").set(settings); },
-      upsertFolder: function (f) { var d = Object.assign({}, f); delete d.id; return db.doc("folders/" + f.id).set(d); },
-      upsertNote: function (n) { var d = Object.assign({}, n); delete d.id; return db.doc("notes/" + n.id).set(d); },
+      setSettings: function (settings) { return settingsDoc.set(settings); },
+      upsertFolder: function (f) { var d = Object.assign({}, f); delete d.id; return doc("folders", f.id).set(d); },
+      upsertNote: function (n) { var d = Object.assign({}, n); delete d.id; return doc("notes", n.id).set(d); },
       exportAll: function () {
-        return Promise.all([db.collection("folders").get(), db.collection("notes").get()]).then(function (r) {
+        return Promise.all([col("folders").get(), col("notes").get()]).then(function (r) {
           return { folders: r[0].docs.map(wrap), notes: r[1].docs.map(wrap) };
         });
       }
@@ -1035,11 +1224,61 @@
 
   // ---------------- Rendering: folders ----------------
 
-  function renderFolders() {
-    els.folderList.innerHTML = "";
-    state.folders.forEach(function (f) {
+  // ---- Folder tree helpers ----
+  function folderById(id) { return state.folders.filter(function (x) { return x.id === id; })[0] || null; }
+  function parentOf(f) {
+    // A folder whose parent is missing (e.g. deleted elsewhere) is treated as top-level.
+    return (f && f.parentId && folderById(f.parentId)) ? f.parentId : null;
+  }
+  function childFolders(parentId) {
+    return state.folders.filter(function (f) { return parentOf(f) === parentId; })
+      .sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+  }
+  function descendantIds(id) {
+    var out = [];
+    childFolders(id).forEach(function (c) { out = out.concat(descendantIds(c.id)); out.push(c.id); });
+    return out;
+  }
+  function folderPath(id) {
+    var names = [], f = folderById(id), guard = 0;
+    while (f && guard++ < 20) { names.unshift(f.name); f = folderById(parentOf(f)); }
+    return names;
+  }
+  function expandAncestors(id) {
+    var f = folderById(id), guard = 0;
+    while (f && guard++ < 20) { var pid = parentOf(f); if (pid) delete state.collapsedFolders[pid]; f = folderById(pid); }
+  }
+
+  function promptNewFolder(parentId) {
+    var parent = parentId ? folderById(parentId) : null;
+    openModal({
+      title: parent ? "New subfolder in \u201C" + parent.name + "\u201D" : "New folder",
+      hasInput: true, placeholder: "Folder name", confirmText: "Create"
+    }).then(function (name) {
+      if (typeof name === "string" && name.trim()) {
+        if (parentId) delete state.collapsedFolders[parentId];
+        store.addFolder(name.trim(), parentId || null).then(function (id) { if (id) { selectFolder(id); closeSidebarOnMobile(); } });
+      }
+    });
+  }
+
+  function renderFolderBranch(parentId, depth) {
+    childFolders(parentId).forEach(function (f) {
+      var kids = childFolders(f.id);
       var row = document.createElement("div");
       row.className = "folder-row" + (f.id === state.currentFolderId ? " active" : "");
+      row.style.paddingLeft = Math.min(depth, 6) * 14 + "px";
+
+      var caret = document.createElement("button");
+      caret.type = "button";
+      caret.className = "folder-caret" + (kids.length ? "" : " empty");
+      caret.textContent = state.collapsedFolders[f.id] ? "\u25B8" : "\u25BE";
+      caret.setAttribute("aria-label", state.collapsedFolders[f.id] ? "Expand" : "Collapse");
+      caret.addEventListener("click", function () {
+        if (state.collapsedFolders[f.id]) delete state.collapsedFolders[f.id]; else state.collapsedFolders[f.id] = true;
+        renderFolders();
+      });
+
       var btn = document.createElement("button");
       btn.className = "folder-btn";
       btn.textContent = f.name;
@@ -1048,9 +1287,53 @@
         selectFolder(f.id);
         closeSidebarOnMobile();
       });
-      row.appendChild(btn);
+
+      var addSub = document.createElement("button");
+      addSub.type = "button";
+      addSub.className = "folder-add-sub";
+      addSub.textContent = "+";
+      addSub.title = "New subfolder";
+      addSub.setAttribute("aria-label", "New subfolder in " + f.name);
+      addSub.addEventListener("click", function () { promptNewFolder(f.id); });
+
+      row.appendChild(caret); row.appendChild(btn); row.appendChild(addSub);
       els.folderList.appendChild(row);
+      if (kids.length && !state.collapsedFolders[f.id]) renderFolderBranch(f.id, depth + 1);
     });
+  }
+
+  function renderSubfolderStrip() {
+    var kids = state.currentFolderId ? childFolders(state.currentFolderId) : [];
+    els.subfolderStrip.innerHTML = "";
+    els.subfolderStrip.hidden = !kids.length || state.viewMode !== "list";
+    kids.forEach(function (k) {
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "subfolder-chip";
+      chip.textContent = "\uD83D\uDCC1 " + k.name;
+      chip.addEventListener("click", function () { selectFolder(k.id); });
+      els.subfolderStrip.appendChild(chip);
+    });
+  }
+
+  function renderFolderTitle() {
+    var path = state.currentFolderId ? folderPath(state.currentFolderId) : [];
+    els.folderTitle.innerHTML = "";
+    if (!path.length) { els.folderTitle.textContent = "Notepad"; return; }
+    if (path.length > 1) {
+      var crumb = document.createElement("span");
+      crumb.className = "folder-crumb";
+      crumb.textContent = path.slice(0, -1).join(" \u203A ") + " \u203A ";
+      els.folderTitle.appendChild(crumb);
+    }
+    els.folderTitle.appendChild(document.createTextNode(path[path.length - 1]));
+  }
+
+  function renderFolders() {
+    els.folderList.innerHTML = "";
+    renderFolderBranch(null, 0);
+    renderSubfolderStrip();
+    if (state.currentFolderId && folderById(state.currentFolderId)) renderFolderTitle();
 
     if (state.currentFolderId && !state.folders.some(function (f) { return f.id === state.currentFolderId; })) {
       state.currentFolderId = state.folders.length ? state.folders[0].id : null;
@@ -1119,6 +1402,7 @@
     });
     bodyField.appendChild(bodyLabel); bodyField.appendChild(textarea);
     wrap.appendChild(bodyField);
+    wrap.appendChild(buildMoveRow(n));
     return wrap;
   }
 
@@ -1346,10 +1630,12 @@
 
     wrap.appendChild(dueField);
     wrap.appendChild(repeatField);
+    wrap.appendChild(buildReminderField(n));
     wrap.appendChild(phoneField);
     wrap.appendChild(emailField);
     wrap.appendChild(linkField);
     wrap.appendChild(voiceField);
+    wrap.appendChild(buildMoveRow(n));
     return wrap;
   }
 
@@ -1375,16 +1661,7 @@
       if (n.color && !n.done) check.style.borderColor = n.color;
       check.addEventListener("click", function (ev) {
         ev.stopPropagation();
-        var newDone = !n.done;
-        store.toggleNote(n.id, newDone);
-        if (newDone && n.repeat && n.repeat.freq && n.dueAt) {
-          var anchorDay = n.repeat.anchorDay || new Date(n.dueAt).getDate();
-          var nextDue = advanceDate(n.dueAt, n.repeat.freq, n.repeat.interval, anchorDay);
-          var nextRepeat = { freq: n.repeat.freq, interval: n.repeat.interval || 1, anchorDay: anchorDay };
-          store.addNote(n.folderId, n.text, n.url, n.type || "task").then(function (id) {
-            if (id) store.updateNote(id, { dueAt: nextDue, color: n.color || null, repeat: nextRepeat, phone: n.phone || null, email: n.email || null });
-          });
-        }
+        if (!n.done) completeTask(n); else store.toggleNote(n.id, false);
       });
       main.appendChild(check);
     }
@@ -1477,6 +1754,72 @@
     return li;
   }
 
+  function moveItem(n, folderId) {
+    if (!folderById(folderId) || folderId === n.folderId) return Promise.resolve();
+    var from = n.folderId;
+    var dest = folderPath(folderId).join(" \u203A ");
+    return store.updateNote(n.id, { folderId: folderId }).then(function () {
+      showToast("Moved to " + dest, "Undo", function () { store.updateNote(n.id, { folderId: from }); }, 6000);
+    });
+  }
+
+  function closeMovePicker() {
+    els.movePanel.hidden = true;
+    els.moveBackdrop.classList.remove("open");
+  }
+
+  function openMovePicker(n) {
+    els.moveTitle.textContent = "Move " + (n.type === "note" ? "note" : "task") + " to\u2026";
+    els.moveList.innerHTML = "";
+    (function walk(parentId, depth) {
+      childFolders(parentId).forEach(function (f) {
+        var row = document.createElement("button");
+        row.type = "button";
+        row.className = "move-row" + (f.id === n.folderId ? " current" : "");
+        row.style.paddingLeft = (10 + Math.min(depth, 6) * 18) + "px";
+        row.textContent = (depth ? "\u21B3 " : "\uD83D\uDCC1 ") + f.name;
+        if (f.id === n.folderId) {
+          var here = document.createElement("span");
+          here.className = "move-here"; here.textContent = "(here now)";
+          row.appendChild(here);
+        } else {
+          row.addEventListener("click", function () { closeMovePicker(); moveItem(n, f.id); });
+        }
+        els.moveList.appendChild(row);
+        walk(f.id, depth + 1);
+      });
+    })(null, 0);
+    els.movePanel.hidden = false;
+    els.moveBackdrop.classList.add("open");
+  }
+
+  function buildMoveRow(n) {
+    var row = document.createElement("div");
+    row.className = "detail-move-row";
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "detail-clear";
+    btn.textContent = "\uD83D\uDCC1 Move to\u2026";
+    btn.addEventListener("click", function () { openMovePicker(n); });
+    row.appendChild(btn);
+    return row;
+  }
+
+  els.moveCancelBtn.addEventListener("click", closeMovePicker);
+  els.moveBackdrop.addEventListener("click", closeMovePicker);
+
+  function completeTask(n) {
+    var p = store.updateNote(n.id, { done: true, doneAt: Date.now() });
+    if (n.repeat && n.repeat.freq && n.dueAt) {
+      var anchorDay = n.repeat.anchorDay || new Date(n.dueAt).getDate();
+      var nextDue = advanceDate(n.dueAt, n.repeat.freq, n.repeat.interval, anchorDay);
+      var nextRepeat = { freq: n.repeat.freq, interval: n.repeat.interval || 1, anchorDay: anchorDay };
+      store.addNote(n.folderId, n.text, n.url, n.type || "task").then(function (id) {
+        if (id) store.updateNote(id, { dueAt: nextDue, color: n.color || null, repeat: nextRepeat, phone: n.phone || null, email: n.email || null, remind: (n.remind === undefined ? null : n.remind) });
+      });
+    }
+    return p;
+  }
+
   function renderNotes() {
     if (state.viewMode !== "list") return;
     if (state.editingNoteId) return;
@@ -1495,8 +1838,8 @@
 
   function selectFolder(id) {
     state.currentFolderId = id;
-    var f = state.folders.filter(function (x) { return x.id === id; })[0];
-    els.folderTitle.textContent = f ? f.name : "Notepad";
+    expandAncestors(id);
+    renderFolderTitle();
     renderFolders();
 
     if (unsubNotes) { unsubNotes(); unsubNotes = null; }
@@ -1573,12 +1916,19 @@
   }
   function stopGCalWatch() {
     if (state.unsubGCal) { state.unsubGCal(); state.unsubGCal = null; }
+    stopBalanceGCalWatch();
   }
 
   function renderDial() {
     if (state.viewMode !== "dial") return;
     var svg = els.dialSvg;
     while (svg.firstChild) svg.removeChild(svg.firstChild);
+    updateFaceChrome();
+    if (state.dialFace === "balance") {
+      renderBalanceFace();
+      if (!state.dialInterval) state.dialInterval = setInterval(renderDial, 30000);
+      return;
+    }
 
     var rootStyle = getComputedStyle(document.documentElement);
     var accentColor = rootStyle.getPropertyValue("--accent").trim() || "#B8863B";
@@ -1612,33 +1962,10 @@
     bezelRing.setAttribute("fill", "none"); bezelRing.setAttribute("stroke", borderColor); bezelRing.setAttribute("stroke-width", "1.5");
     svg.appendChild(bezelRing);
 
-    // Crown: tap to expand the full list of today's tasks below the dial
-    var crownW = 14, crownH = 20;
-    var crownX = cx + outerR - 3;
-    var crownY = cy - crownH / 2;
-    var crownGroup = document.createElementNS(SVG_NS, "g");
-    crownGroup.style.cursor = "pointer";
-    crownGroup.addEventListener("click", function () { toggleDialTaskList(); });
-    var crownRect = document.createElementNS(SVG_NS, "rect");
-    crownRect.setAttribute("x", crownX); crownRect.setAttribute("y", crownY);
-    crownRect.setAttribute("width", crownW); crownRect.setAttribute("height", crownH);
-    crownRect.setAttribute("rx", 4);
-    crownRect.setAttribute("fill", state.dialTasksExpanded ? accentColor : surfaceRaised);
-    crownRect.setAttribute("stroke", borderColor); crownRect.setAttribute("stroke-width", "1.5");
-    crownGroup.appendChild(crownRect);
-    for (var ci = 0; ci < 3; ci++) {
-      var flute = document.createElementNS(SVG_NS, "line");
-      var fluteX = crownX + 4 + ci * 3.5;
-      flute.setAttribute("x1", fluteX); flute.setAttribute("y1", crownY + 4);
-      flute.setAttribute("x2", fluteX); flute.setAttribute("y2", crownY + crownH - 4);
-      flute.setAttribute("stroke", state.dialTasksExpanded ? surfaceColor : borderColor);
-      flute.setAttribute("stroke-width", "1");
-      crownGroup.appendChild(flute);
-    }
-    var crownTitle = document.createElementNS(SVG_NS, "title");
-    crownTitle.textContent = state.dialTasksExpanded ? "Hide today's task list" : "Show today's full task list";
-    crownGroup.appendChild(crownTitle);
-    svg.appendChild(crownGroup);
+    // Crown: tap to expand today's pending tasks with their countdowns
+    drawCrown(svg, cx, cy, outerR, { surfaceRaised: surfaceRaised, border: borderColor, accent: accentColor, surface: surfaceColor },
+      state.dialTasksExpanded ? "Hide today's task list" : "Show today's full task list",
+      function () { toggleDialTaskList(); }, state.dialTasksExpanded);
 
     // Countdown / overdue arcs on the bezel band, one per today's open task
     todays.forEach(function (n, idx) {
@@ -1826,6 +2153,7 @@
   function startAllNotesSubscription() {
     if (!state.unsubAllNotes) state.unsubAllNotes = store.onAllNotesChange(function (notes) {
       state.allNotesForDial = notes;
+      checkReminders();
       if (state.viewMode === "dial") renderDial();
       if (state.viewMode === "calendar") renderCalendarView();
     });
@@ -1987,6 +2315,7 @@
     els.addForm.hidden = mode !== "list";
     els.noteList.hidden = mode !== "list";
     els.emptyState.hidden = mode !== "list";
+    renderSubfolderStrip();
 
     if (mode === "dial") {
       startAllNotesSubscription();
@@ -2000,7 +2329,6 @@
     } else {
       stopGCalWatch();
       if (state.dialInterval) { clearInterval(state.dialInterval); state.dialInterval = null; }
-      stopAllNotesSubscription();
       state.dialTasksExpanded = false;
       els.dialTaskListWrap.hidden = true;
       renderNotes();
@@ -2020,6 +2348,8 @@
       b.addEventListener("click", function () { store.setSettings(Object.assign({}, state.settings, { themeId: t.id })); });
       els.swatchGrid.appendChild(b);
     });
+    els.remindLeadSelect.value = String(state.settings.remindLead === undefined ? 15 : state.settings.remindLead);
+    renderNotifyRow();
     els.smartAddToggle.textContent = state.settings.smartAdd ? "On" : "Off";
     els.smartAddToggle.classList.toggle("on", !!state.settings.smartAdd);
   }
@@ -2031,6 +2361,978 @@
   els.settingsBackdrop.addEventListener("click", closeSettingsPanel);
   els.closeSettingsBtn.addEventListener("click", closeSettingsPanel);
   els.smartAddToggle.addEventListener("click", function () { store.setSettings(Object.assign({}, state.settings, { smartAdd: !state.settings.smartAdd })); });
+
+  // ---------------- Assistant (Claude) ----------------
+
+  var ai = { sample: null, turns: [], running: false, ctl: null, off: false };
+  var AI_SUGGESTIONS = ["What's due this week?", "Plan my day", "Summarize this folder", "Improve one of my prompts"];
+
+  function pad2(x) { return (x < 10 ? "0" : "") + x; }
+  function localStamp(ms) {
+    var d = new Date(ms);
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + "T" + pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+  }
+  function prettyWhen(ms) {
+    return new Date(ms).toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+  function clip(t, n) { t = String(t || ""); return t.length > n ? t.slice(0, n) + "\u2026" : t; }
+
+  function buildAssistantContext() {
+    var now = Date.now();
+    var tz = "";
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
+    var byFolder = {};
+    state.allNotesForDial.forEach(function (n) { (byFolder[n.folderId] = byFolder[n.folderId] || []).push(n); });
+    var lines = [];
+    function walk(parentId) {
+      childFolders(parentId).forEach(function (f) {
+        lines.push("");
+        lines.push("FOLDER \"" + folderPath(f.id).join(" > ") + "\" (folderId: " + f.id + ")" + (f.id === state.currentFolderId ? "  <- currently open" : ""));
+        var items = (byFolder[f.id] || []).slice().sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); });
+        if (!items.length) lines.push("  (empty)");
+        items.forEach(function (n) {
+          var isNote = n.type === "note";
+          var parts = ["  - " + (isNote ? "[note]" : (n.done ? "[task, done]" : "[task]")) + " (id: " + n.id + ") " + clip(n.text, isNote ? 700 : 300)];
+          if (!isNote && n.dueAt) parts.push("due " + prettyWhen(n.dueAt) + (n.dueAt < now && !n.done ? " (OVERDUE)" : ""));
+          if (n.repeat && n.repeat.freq) parts.push("repeats " + repeatLabel(n.repeat).toLowerCase());
+          if (n.url) parts.push("link " + clip(n.url, 120));
+          if (n.phone) parts.push("phone " + n.phone);
+          if (n.email) parts.push("email " + n.email);
+          if (n.voice) parts.push("has a voice memo");
+          lines.push(parts.join(" | "));
+        });
+        walk(f.id);
+      });
+    }
+    walk(null);
+    var data = lines.join("\n");
+    if (data.length > 40000) data = data.slice(0, 40000) + "\n...(list cut short for length)";
+    return [
+      "You are the assistant built into a notepad and task app. The user organizes tasks and notes in folders (folders can have subfolders).",
+      "Right now it is " + prettyWhen(now) + " (local time " + localStamp(now) + (tz ? ", time zone " + tz : "") + ").",
+      "",
+      "HOW TO ANSWER",
+      "- Be brief and practical; the user is often on a phone. Plain text, short paragraphs or simple '-' lists. You may use **bold** sparingly.",
+      "- Only use the data below. If something isn't there, say so. Refer to tasks by their text, never by id.",
+      "- You cannot change anything yourself. When the user asks you to add, complete, or reschedule something, briefly say what you'll propose, then end your reply with a fenced block exactly like this:",
+      "```actions",
+      '[{\"type\":\"add_task\",\"text\":\"...\",\"folderId\":\"...\",\"due\":\"YYYY-MM-DDTHH:MM or null\"},',
+      ' {\"type\":\"add_note\",\"text\":\"...\",\"folderId\":\"...\"},',
+      ' {\"type\":\"complete_task\",\"id\":\"...\"},',
+      ' {\"type\":\"set_due\",\"id\":\"...\",\"due\":\"YYYY-MM-DDTHH:MM\"},',
+      ' {\"type\":\"move\",\"id\":\"...\",\"folderId\":\"...\"}]',
+      "```",
+      "- Use real ids and folderIds from the data. If no folder is named, use the currently open folder. Due times are local time. The user taps a button to confirm each action, so never say it's already done.",
+      "- Only include the actions block when the user asked for a change.",
+      "",
+      "THE USER'S FOLDERS, TASKS AND NOTES",
+      data || "(nothing saved yet)"
+    ].join("\n");
+  }
+
+  function aiVisibleText(t) { var i = t.indexOf("```actions"); return (i >= 0 ? t.slice(0, i) : t).trim(); }
+  function aiParseActions(t) {
+    var m = t.match(/```actions\s*([\s\S]*?)```/);
+    if (!m) return [];
+    try { var a = JSON.parse(m[1]); return Array.isArray(a) ? a.filter(function (x) { return x && typeof x.type === "string"; }).slice(0, 12) : []; }
+    catch (e) { return []; }
+  }
+
+  function renderRich(el, text) {
+    el.innerHTML = "";
+    String(text).split(/(\*\*[^*]+\*\*)/g).forEach(function (part) {
+      if (/^\*\*[^*]+\*\*$/.test(part)) { var b = document.createElement("strong"); b.textContent = part.slice(2, -2); el.appendChild(b); }
+      else if (part) el.appendChild(document.createTextNode(part));
+    });
+  }
+
+  function aiScroll() { els.aiMsgs.scrollTop = els.aiMsgs.scrollHeight; }
+
+  function aiIntro() {
+    els.aiMsgs.innerHTML = "";
+    var intro = document.createElement("div");
+    intro.className = "ai-intro";
+    intro.textContent = "Ask about your tasks and notes, plan your day, or have me draft things. I'll suggest changes and you tap to confirm \u2014 I never change anything on my own.";
+    var sug = document.createElement("div");
+    sug.className = "ai-suggest";
+    AI_SUGGESTIONS.forEach(function (q) {
+      var b = document.createElement("button");
+      b.type = "button"; b.textContent = q;
+      b.addEventListener("click", function () { aiSend(q); });
+      sug.appendChild(b);
+    });
+    els.aiMsgs.appendChild(intro); els.aiMsgs.appendChild(sug);
+  }
+
+  function aiBubble(role, text) {
+    var el = document.createElement("div");
+    el.className = "ai-msg " + role;
+    if (role === "assistant") renderRich(el, text); else el.textContent = text;
+    els.aiMsgs.appendChild(el);
+    aiScroll();
+    return el;
+  }
+
+  function describeAction(a) {
+    var f = a.folderId && folderById(a.folderId);
+    var where = f ? folderPath(f.id).join(" \u203A ") : (state.currentFolderId ? folderPath(state.currentFolderId).join(" \u203A ") : "");
+    var n = a.id ? state.allNotesForDial.filter(function (x) { return x.id === a.id; })[0] : null;
+    var dueMs = a.due ? new Date(a.due).getTime() : NaN;
+    if (a.type === "add_task") return { title: "Add task: " + clip(a.text, 120), sub: [where, !isNaN(dueMs) ? "due " + prettyWhen(dueMs) : ""].filter(Boolean).join(" \u00B7 "), btn: "Add", ok: !!a.text };
+    if (a.type === "add_note") return { title: "Add note: " + clip(a.text, 120), sub: where, btn: "Add", ok: !!a.text };
+    if (a.type === "complete_task") return { title: "Mark done: " + (n ? clip(n.text, 120) : "(task not found)"), sub: "", btn: "Done", ok: !!n && !n.done };
+    if (a.type === "move") return { title: "Move: " + (n ? clip(n.text, 100) : "(item not found)"), sub: f ? "to " + where : "(folder not found)", btn: "Move", ok: !!n && !!f && n.folderId !== a.folderId };
+    if (a.type === "set_due") return { title: "Reschedule: " + (n ? clip(n.text, 100) : "(task not found)"), sub: !isNaN(dueMs) ? "to " + prettyWhen(dueMs) : "", btn: "Change", ok: !!n && !isNaN(dueMs) };
+    return { title: "Unknown action", sub: "", btn: "", ok: false };
+  }
+
+  function applyAction(a) {
+    var folderId = (a.folderId && folderById(a.folderId)) ? a.folderId : state.currentFolderId;
+    var dueMs = a.due ? new Date(a.due).getTime() : NaN;
+    if (a.type === "add_task") {
+      return store.addNote(folderId, String(a.text).slice(0, 500), null, "task").then(function (id) {
+        if (id && !isNaN(dueMs)) return store.updateNote(id, { dueAt: dueMs });
+      });
+    }
+    if (a.type === "add_note") return store.addNote(folderId, String(a.text).slice(0, 5000), null, "note");
+    var n = state.allNotesForDial.filter(function (x) { return x.id === a.id; })[0];
+    if (!n) return Promise.reject(new Error("missing"));
+    if (a.type === "complete_task") return completeTask(n);
+    if (a.type === "move") {
+      if (!folderById(a.folderId)) return Promise.reject(new Error("missing folder"));
+      return store.updateNote(n.id, { folderId: a.folderId });
+    }
+    if (a.type === "set_due") {
+      var patch = { dueAt: dueMs };
+      if (n.repeat && n.repeat.freq) patch.repeat = { freq: n.repeat.freq, interval: n.repeat.interval || 1 };
+      return store.updateNote(n.id, patch);
+    }
+    return Promise.reject(new Error("unknown"));
+  }
+
+  function aiRenderActions(actions) {
+    if (!actions.length) return;
+    var wrap = document.createElement("div");
+    wrap.className = "ai-actions";
+    var pending = [];
+    actions.forEach(function (a) {
+      var d = describeAction(a);
+      var card = document.createElement("div");
+      card.className = "ai-action-card";
+      var txt = document.createElement("div");
+      txt.className = "ai-action-text";
+      txt.textContent = d.title;
+      if (d.sub) { var sub = document.createElement("span"); sub.className = "ai-action-sub"; sub.textContent = d.sub; txt.appendChild(sub); }
+      card.appendChild(txt);
+      if (d.ok) {
+        var btn = document.createElement("button");
+        btn.type = "button"; btn.className = "detail-clear"; btn.textContent = d.btn;
+        var run = function () {
+          if (card.classList.contains("applied")) return Promise.resolve();
+          btn.disabled = true;
+          return applyAction(a).then(function () {
+            card.classList.add("applied"); btn.textContent = "\u2713";
+          }, function () { btn.disabled = false; showToast("Couldn't apply that one."); });
+        };
+        btn.addEventListener("click", run);
+        pending.push(run);
+        card.appendChild(btn);
+      } else {
+        card.classList.add("applied");
+      }
+      wrap.appendChild(card);
+    });
+    if (pending.length > 1) {
+      var all = document.createElement("button");
+      all.type = "button"; all.className = "detail-clear"; all.textContent = "Apply all (" + pending.length + ")";
+      all.style.alignSelf = "flex-start";
+      all.addEventListener("click", function () {
+        all.disabled = true;
+        pending.reduce(function (p, run) { return p.then(run); }, Promise.resolve()).then(function () { all.textContent = "\u2713 All applied"; });
+      });
+      wrap.appendChild(all);
+    }
+    els.aiMsgs.appendChild(wrap);
+    aiScroll();
+  }
+
+  function aiErrorText(code) {
+    switch (code) {
+      case "not_granted": case "sampling_disabled": case "not_declared": case "capability_disabled": case "capability_removed":
+        return "The assistant isn't allowed to run here. If you declined the permission prompt, reload the page to be asked again.";
+      case "rate_limited": return "You've hit your Claude usage limit for the moment. Try again a bit later.";
+      case "session_expired": return "Your Claude sign-in expired. Sign in again, then retry.";
+      case "refused": return "Claude couldn't help with that one. Try asking differently.";
+      case "prompt_too_large": return "That's too much to send at once. Tap New chat, or ask about a single folder.";
+      case "empty_completion": return "No answer came back. Try rephrasing the question.";
+      default: return "Something went wrong reaching Claude. Tap send to try again.";
+    }
+  }
+
+  function aiSetRunning(on) {
+    ai.running = on;
+    els.aiSendBtn.innerHTML = on ? "&#9632;" : "&#8593;";
+    els.aiSendBtn.setAttribute("aria-label", on ? "Stop" : "Send");
+  }
+
+  function aiSend(text) {
+    text = String(text || "").trim();
+    if (!text || ai.running || ai.off || !ai.sample) return;
+    if (!ai.turns.length) els.aiMsgs.innerHTML = "";
+    els.aiInput.value = ""; els.aiInput.style.height = "";
+    ai.turns.push({ role: "user", content: text });
+    aiBubble("user", text);
+    var bubble = aiBubble("assistant", "");
+    bubble.innerHTML = '<span class="ai-thinking">Thinking\u2026</span>';
+    var input = [{ role: "user", content: buildAssistantContext() }].concat(ai.turns.slice(-12));
+    if (input[1] && input[1].role !== "user") input.splice(1, 1);
+    ai.ctl = new AbortController();
+    aiSetRunning(true);
+    ai.sample(input, {
+      modelTier: "quick",
+      cache: false,
+      signal: ai.ctl.signal,
+      onText: function (u) { var v = aiVisibleText(u.text); if (v) { renderRich(bubble, v); aiScroll(); } }
+    }).then(function (res) {
+      var full = (res && res.text) || "";
+      var visible = aiVisibleText(full) || "Here's what I suggest:";
+      renderRich(bubble, visible);
+      var actions = aiParseActions(full);
+      ai.turns.push({ role: "assistant", content: visible + (actions.length ? "\n[Proposed " + actions.length + " change(s) for the user to confirm.]" : "") });
+      aiRenderActions(actions);
+    }, function (e) {
+      var code = (e && e.code) || "upstream_error";
+      var partial = e && e.text ? aiVisibleText(e.text) : "";
+      if (code === "cancelled") {
+        if (partial) { renderRich(bubble, partial); ai.turns.push({ role: "assistant", content: partial }); }
+        else bubble.remove();
+        return;
+      }
+      if (partial && code !== "refused") renderRich(bubble, partial); else bubble.remove();
+      var err = aiBubble("error", aiErrorText(code));
+      if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].indexOf(code) >= 0) {
+        ai.off = true; els.aiInput.disabled = true;
+      }
+      ai.turns.pop();
+      void err;
+    }).then(function () { aiSetRunning(false); ai.ctl = null; });
+  }
+
+  function openAssistant() {
+    if (!ai.turns.length) aiIntro();
+    els.aiPanel.hidden = false;
+    els.aiBackdrop.classList.add("open");
+    setTimeout(function () { els.aiInput.focus(); }, 60);
+  }
+  function closeAssistant() {
+    els.aiPanel.hidden = true;
+    els.aiBackdrop.classList.remove("open");
+  }
+
+  els.aiBtn.addEventListener("click", openAssistant);
+  els.aiCloseBtn.addEventListener("click", closeAssistant);
+  els.aiBackdrop.addEventListener("click", closeAssistant);
+  els.aiNewBtn.addEventListener("click", function () {
+    if (ai.ctl) ai.ctl.abort();
+    ai.turns = []; aiIntro();
+  });
+  els.aiSendBtn.addEventListener("click", function () {
+    if (ai.running) { if (ai.ctl) ai.ctl.abort(); return; }
+    aiSend(els.aiInput.value);
+  });
+  els.aiInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!ai.running) aiSend(els.aiInput.value); }
+  });
+  els.aiInput.addEventListener("input", function () {
+    els.aiInput.style.height = "";
+    els.aiInput.style.height = Math.min(els.aiInput.scrollHeight, 120) + "px";
+  });
+
+  if (window.claude && typeof window.claude.use === "function") {
+    window.claude.use("sample").then(function (fn) {
+      if (typeof fn === "function") { ai.sample = fn; els.aiBtn.hidden = false; }
+    }).catch(function () {});
+  }
+
+  // ---------------- Balance face (lifestyle balance pie) ----------------
+
+  var DEFAULT_BALANCE_CATS = [
+    ["physical", "Physical health"], ["mental", "Mental health"], ["career", "Career"], ["family", "Family"],
+    ["social", "Social"], ["partner", "Romance"], ["leisure", "Recreation"], ["spirit", "Spirituality"]
+  ];
+  var RATING_COLOR = "#D85A30";
+  var EFFORT_COLOR = "#7F77DD";
+
+  function getBalance() {
+    var b = state.settings.balance || {};
+    return {
+      cats: (b.cats && b.cats.length) ? b.cats.slice() : DEFAULT_BALANCE_CATS.map(function (c) { return { id: c[0], name: c[1] }; }),
+      map: Object.assign({}, b.map || {}),
+      checkins: Object.assign({}, b.checkins || {}),
+      events: Object.assign({}, b.events || {})
+    };
+  }
+  function saveBalance(b) { return store.setSettings(Object.assign({}, state.settings, { balance: b })); }
+
+  function weekKey(ms) {
+    var d = new Date(ms); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - d.getDay());
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  }
+  function checkinKeys(b) { return Object.keys(b.checkins).sort(); }
+  function prettyWeek(key) {
+    var p = key.split("-");
+    return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  function eventKey(ev) { return String(ev.summary || "").trim().toLowerCase(); }
+
+  function categoryForFolder(folderId, b) {
+    var f = folderById(folderId), guard = 0;
+    while (f && guard++ < 25) {
+      var v = b.map[f.id];
+      if (v === "none") return null;
+      if (v) return b.cats.some(function (c) { return c.id === v; }) ? v : null;
+      f = folderById(parentOf(f));
+    }
+    return null;
+  }
+
+  function computeBalance() {
+    var b = getBalance();
+    var now = Date.now(), from = now - 7 * 86400000;
+    var stats = {};
+    b.cats.forEach(function (c) { stats[c.id] = { tasks: 0, hours: 0, pts: 0 }; });
+    var unlinkedTasks = 0;
+    state.allNotesForDial.forEach(function (n) {
+      if (n.type === "note" || !n.done) return;
+      var at = n.doneAt || n.updatedAt || 0;
+      if (at < from || at > now) return;
+      var cat = categoryForFolder(n.folderId, b);
+      if (!cat) { unlinkedTasks++; return; }
+      stats[cat].tasks++; stats[cat].pts += 1;
+    });
+    var unsorted = {};
+    state.balanceEvents.forEach(function (ev) {
+      var s = new Date(ev.start.dateTime).getTime(), e = new Date(ev.end.dateTime).getTime();
+      if (isNaN(s) || isNaN(e) || e <= from || s >= now) return;
+      var hrs = Math.min(12, (Math.min(e, now) - Math.max(s, from)) / 3600000);
+      if (hrs <= 0) return;
+      var key = eventKey(ev), cat = b.events[key];
+      if (cat === undefined) { if (key) unsorted[key] = ev.summary; return; }
+      if (!cat || cat === "none" || !stats[cat]) return;
+      stats[cat].hours += hrs; stats[cat].pts += hrs;
+    });
+    var max = 0;
+    b.cats.forEach(function (c) { max = Math.max(max, stats[c.id].pts); });
+    b.cats.forEach(function (c) { stats[c.id].effort = max > 0 ? Math.round(stats[c.id].pts / max * 100) / 10 : 0; });
+    var keys = checkinKeys(b);
+    return {
+      b: b, stats: stats, unlinkedTasks: unlinkedTasks, unsorted: unsorted,
+      latestKey: keys[keys.length - 1] || null, prevKey: keys[keys.length - 2] || null
+    };
+  }
+
+  function svgEl(tag, attrs, parent) {
+    var el = document.createElementNS(SVG_NS, tag);
+    Object.keys(attrs || {}).forEach(function (k) { el.setAttribute(k, attrs[k]); });
+    if (parent) parent.appendChild(el);
+    return el;
+  }
+
+  function drawCrown(svg, cx, cy, outerR, colors, title, onClick, active) {
+    var w = 14, h = 20, x = cx + outerR - 3, y = cy - h / 2;
+    var g = svgEl("g", {}, svg);
+    g.style.cursor = "pointer";
+    g.addEventListener("click", onClick);
+    svgEl("rect", { x: x, y: y, width: w, height: h, rx: 4, fill: active ? colors.accent : colors.surfaceRaised, stroke: colors.border, "stroke-width": 1.5 }, g);
+    for (var i = 0; i < 3; i++) {
+      var fx = x + 4 + i * 3.5;
+      svgEl("line", { x1: fx, y1: y + 4, x2: fx, y2: y + h - 4, stroke: active ? colors.surface : colors.border, "stroke-width": 1 }, g);
+    }
+    svgEl("title", {}, g).textContent = title;
+  }
+
+  function renderBalanceFace() {
+    var svg = els.dialSvg;
+    var rs = getComputedStyle(document.documentElement);
+    var col = {
+      accent: rs.getPropertyValue("--accent").trim() || "#B8863B",
+      textDim: rs.getPropertyValue("--text-dim").trim() || "#7a756b",
+      text: rs.getPropertyValue("--text").trim() || "#201d18",
+      surface: rs.getPropertyValue("--surface").trim() || "#fff",
+      border: rs.getPropertyValue("--border").trim() || "#e2dfd8",
+      surfaceRaised: rs.getPropertyValue("--surface-raised").trim() || "#fbfaf7",
+      accentSoft: rs.getPropertyValue("--accent-soft").trim() || "rgba(0,0,0,.08)"
+    };
+    var data = computeBalance();
+    var cats = data.b.cats, N = cats.length;
+    var cx = 150, cy = 150, outerR = 120, faceR = 96, radarMax = 86;
+    var seg = 2 * Math.PI / N;
+    function ang(i) { return -Math.PI / 2 + i * seg; }
+    function pt(r, a) { return (cx + r * Math.cos(a)).toFixed(1) + "," + (cy + r * Math.sin(a)).toFixed(1); }
+
+    svgEl("circle", { cx: cx, cy: cy, r: outerR, fill: col.surfaceRaised, stroke: col.border, "stroke-width": 1.5 }, svg);
+    svgEl("circle", { cx: cx, cy: cy, r: faceR, fill: col.surface, stroke: col.border, "stroke-width": 2 }, svg);
+
+    if (state.balanceSelected !== null && state.balanceSelected < N) {
+      var a0 = ang(state.balanceSelected), a1 = ang(state.balanceSelected + 1);
+      svgEl("path", { d: "M" + cx + "," + cy + " L" + pt(faceR, a0) + " A" + faceR + "," + faceR + " 0 0 1 " + pt(faceR, a1) + " Z", fill: col.accentSoft }, svg);
+    }
+
+    [0.5, 1].forEach(function (f) {
+      svgEl("circle", { cx: cx, cy: cy, r: radarMax * f, fill: "none", stroke: col.border, "stroke-width": 1, "stroke-dasharray": "3 3" }, svg);
+    });
+    for (var i = 0; i < N; i++) {
+      svgEl("line", { x1: cx, y1: cy, x2: pt(outerR, ang(i)).split(",")[0], y2: pt(outerR, ang(i)).split(",")[1], stroke: col.border, "stroke-width": 1 }, svg);
+    }
+
+    var defs = svgEl("defs", {}, svg);
+    var labelR = 108, maxChars = Math.max(4, Math.floor(labelR * seg / 5.4));
+    cats.forEach(function (c, i) {
+      var a0 = ang(i), a1 = ang(i + 1), mid = (a0 + a1) / 2;
+      var bottom = Math.sin(mid) > 0.15;
+      var r = bottom ? labelR + 5 : labelR - 3;
+      var id = "balArc" + i;
+      var d = bottom
+        ? "M" + pt(r, a1) + " A" + r + "," + r + " 0 0 0 " + pt(r, a0)
+        : "M" + pt(r, a0) + " A" + r + "," + r + " 0 0 1 " + pt(r, a1);
+      svgEl("path", { id: id, d: d, fill: "none" }, defs);
+      var t = svgEl("text", { "font-size": "9.5", fill: i === state.balanceSelected ? col.accent : col.textDim, "font-weight": i === state.balanceSelected ? "700" : "500" }, svg);
+      var tp = svgEl("textPath", { href: "#" + id, startOffset: "50%", "text-anchor": "middle" }, t);
+      tp.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", "#" + id);
+      var name = c.name.length > maxChars ? c.name.slice(0, maxChars - 1) + "\u2026" : c.name;
+      tp.textContent = name;
+    });
+
+    function polygon(values, color, dashed, fillOpacity) {
+      var pts = values.map(function (v, i) { return pt(Math.max(0, Math.min(10, v)) / 10 * radarMax, ang(i) + seg / 2); }).join(" ");
+      svgEl("polygon", {
+        points: pts, fill: fillOpacity ? color : "none", "fill-opacity": fillOpacity || 0,
+        stroke: color, "stroke-width": 2.5, "stroke-linejoin": "round", "stroke-dasharray": dashed ? "6 4" : "none"
+      }, svg);
+    }
+    polygon(cats.map(function (c) { return data.stats[c.id].effort; }), EFFORT_COLOR, true, 0);
+    if (data.latestKey) {
+      var latest = data.b.checkins[data.latestKey];
+      var vals = cats.map(function (c) { return +latest[c.id] || 0; });
+      polygon(vals, RATING_COLOR, false, 0.1);
+      vals.forEach(function (v, i) {
+        var p = pt(v / 10 * radarMax, ang(i) + seg / 2).split(",");
+        svgEl("circle", { cx: p[0], cy: p[1], r: 3, fill: RATING_COLOR }, svg);
+      });
+    }
+    svgEl("circle", { cx: cx, cy: cy, r: 4, fill: col.accent }, svg);
+
+    cats.forEach(function (c, i) {
+      var s = svgEl("path", {
+        d: "M" + cx + "," + cy + " L" + pt(outerR, ang(i)) + " A" + outerR + "," + outerR + " 0 0 1 " + pt(outerR, ang(i + 1)) + " Z",
+        fill: "transparent"
+      }, svg);
+      s.style.cursor = "pointer";
+      svgEl("title", {}, s).textContent = c.name;
+      s.addEventListener("click", function () { state.balanceSelected = state.balanceSelected === i ? null : i; renderDial(); });
+    });
+
+    drawCrown(svg, cx, cy, outerR, col, "Show today's full task list", function () {
+      state.dialTasksExpanded = true;
+      switchDialFace("time");
+    }, false);
+
+    els.dialCaption.textContent = "Last 7 days";
+    els.dialSubCaption.textContent = data.latestKey
+      ? "Solid: your rating (week of " + prettyWeek(data.latestKey) + ") \u00B7 Dashed: what you did"
+      : "Dashed: what you did \u00B7 Do a check-in to add your ratings";
+    renderBalancePanel(data);
+  }
+
+  function renderBalancePanel(data) {
+    var wrap = els.balancePanel;
+    wrap.innerHTML = "";
+    var latest = data.latestKey ? data.b.checkins[data.latestKey] : null;
+    var prev = data.prevKey ? data.b.checkins[data.prevKey] : null;
+    data.b.cats.forEach(function (c, i) {
+      var st = data.stats[c.id];
+      var row = document.createElement("div");
+      row.className = "balance-row" + (state.balanceSelected === i ? " selected" : "");
+      var name = document.createElement("div");
+      name.className = "balance-name";
+      name.textContent = c.name;
+      var sub = document.createElement("span");
+      sub.className = "ai-action-sub";
+      var bits = [];
+      bits.push(st.tasks + (st.tasks === 1 ? " task done" : " tasks done"));
+      if (st.hours) bits.push((Math.round(st.hours * 10) / 10) + " h on calendar");
+      sub.textContent = bits.join(" \u00B7 ");
+      name.appendChild(sub);
+      var rated = document.createElement("div");
+      rated.className = "balance-num";
+      var rv = latest && latest[c.id] !== undefined ? +latest[c.id] : null;
+      var arrow = "";
+      if (rv !== null && prev && prev[c.id] !== undefined) {
+        var dv = rv - (+prev[c.id]);
+        arrow = dv > 0 ? " \u2191" : dv < 0 ? " \u2193" : "";
+      }
+      rated.innerHTML = "";
+      var r1 = document.createElement("span"); r1.style.color = RATING_COLOR; r1.textContent = rv === null ? "\u2013" : ("Rated " + rv + arrow);
+      var r2 = document.createElement("span"); r2.style.color = EFFORT_COLOR; r2.style.display = "block"; r2.textContent = "Did " + st.effort;
+      rated.appendChild(r1); rated.appendChild(r2);
+      row.appendChild(name); row.appendChild(rated);
+      row.addEventListener("click", function () { state.balanceSelected = state.balanceSelected === i ? null : i; renderDial(); });
+      wrap.appendChild(row);
+    });
+
+    var notes = [];
+    if (data.unlinkedTasks) notes.push(data.unlinkedTasks + (data.unlinkedTasks === 1 ? " finished task is" : " finished tasks are") + " in folders not linked to an area.");
+    var unsortedCount = Object.keys(data.unsorted).length;
+    if (state.balanceGCalStatus === "unavailable") notes.push("Calendar time isn't counted in this version.");
+    else if (unsortedCount) notes.push(unsortedCount + (unsortedCount === 1 ? " calendar event isn't" : " calendar events aren't") + " sorted into an area yet.");
+    notes.forEach(function (t) {
+      var p = document.createElement("p");
+      p.className = "dial-caption dial-sub";
+      p.textContent = t;
+      wrap.appendChild(p);
+    });
+
+    var actions = document.createElement("div");
+    actions.className = "balance-actions";
+    function btn(label, fn) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "detail-clear"; b.textContent = label;
+      b.addEventListener("click", fn);
+      actions.appendChild(b);
+      return b;
+    }
+    btn(data.latestKey === weekKey(Date.now()) ? "Update this week's check-in" : "Weekly check-in", openCheckin);
+    btn("Set up areas", openBalanceSetup);
+    if (unsortedCount && ai.sample && !ai.off) {
+      var sortBtn = btn("Sort events with Claude", function () { sortEventsWithClaude(data.unsorted, sortBtn); });
+    }
+    wrap.appendChild(actions);
+  }
+
+  function openSheet(title) {
+    els.balanceSheetBody.innerHTML = "";
+    var h = document.createElement("h2");
+    h.className = "panel-title"; h.textContent = title;
+    els.balanceSheetBody.appendChild(h);
+    els.balanceSheet.hidden = false;
+    els.balanceBackdrop.classList.add("open");
+    return els.balanceSheetBody;
+  }
+  function closeSheet() {
+    els.balanceSheet.hidden = true;
+    els.balanceBackdrop.classList.remove("open");
+    if (state.viewMode === "dial") renderDial();
+  }
+
+  function openCheckin() {
+    var b = getBalance();
+    var keys = checkinKeys(b);
+    var thisWeek = weekKey(Date.now());
+    var start = b.checkins[thisWeek] || (keys.length ? b.checkins[keys[keys.length - 1]] : {});
+    var body = openSheet("Weekly check-in");
+    var intro = document.createElement("p");
+    intro.className = "modal-message";
+    intro.textContent = "How satisfied are you with each area right now? 1 = not at all, 10 = completely.";
+    body.appendChild(intro);
+    var vals = {};
+    b.cats.forEach(function (c) {
+      var v = start[c.id] !== undefined ? +start[c.id] : 5;
+      vals[c.id] = v;
+      var row = document.createElement("div");
+      row.className = "checkin-row";
+      var lbl = document.createElement("label"); lbl.textContent = c.name;
+      var range = document.createElement("input");
+      range.type = "range"; range.min = "1"; range.max = "10"; range.step = "1"; range.value = String(v);
+      range.setAttribute("aria-label", c.name);
+      var out = document.createElement("span"); out.className = "checkin-val"; out.textContent = String(v);
+      range.addEventListener("input", function () { vals[c.id] = +range.value; out.textContent = range.value; });
+      row.appendChild(lbl); row.appendChild(range); row.appendChild(out);
+      body.appendChild(row);
+    });
+    var acts = document.createElement("div"); acts.className = "modal-actions"; acts.style.marginTop = "16px";
+    var cancel = document.createElement("button"); cancel.type = "button"; cancel.className = "modal-btn cancel"; cancel.textContent = "Cancel";
+    cancel.addEventListener("click", closeSheet);
+    var save = document.createElement("button"); save.type = "button"; save.className = "modal-btn primary"; save.textContent = "Save";
+    save.addEventListener("click", function () {
+      var nb = getBalance();
+      nb.checkins[thisWeek] = vals;
+      saveBalance(nb).then(function () { showToast("Check-in saved"); });
+      closeSheet();
+    });
+    acts.appendChild(cancel); acts.appendChild(save);
+    body.appendChild(acts);
+  }
+
+  function catSelect(value, cats, extraOptions, onChange) {
+    var sel = document.createElement("select");
+    sel.className = "settings-select";
+    extraOptions.concat(cats.map(function (c) { return [c.id, c.name]; })).forEach(function (o) {
+      var opt = document.createElement("option"); opt.value = o[0]; opt.textContent = o[1];
+      sel.appendChild(opt);
+    });
+    sel.value = value;
+    sel.addEventListener("change", function () { onChange(sel.value); });
+    return sel;
+  }
+
+  function openBalanceSetup() {
+    var b = getBalance();
+    var body = openSheet("Set up areas");
+
+    var s1 = document.createElement("div"); s1.className = "setup-section";
+    var h1 = document.createElement("h3"); h1.textContent = "Life areas"; s1.appendChild(h1);
+    b.cats.forEach(function (c) {
+      var row = document.createElement("div"); row.className = "setup-row";
+      var inp = document.createElement("input"); inp.type = "text"; inp.value = c.name; inp.maxLength = 40;
+      inp.addEventListener("change", function () {
+        var v = inp.value.trim(); if (!v) { inp.value = c.name; return; }
+        var nb = getBalance(); nb.cats.forEach(function (x) { if (x.id === c.id) x.name = v; }); saveBalance(nb);
+      });
+      row.appendChild(inp);
+      if (b.cats.length > 3) {
+        var del = document.createElement("button"); del.type = "button"; del.className = "note-del"; del.textContent = "\u00D7";
+        del.setAttribute("aria-label", "Remove " + c.name);
+        del.addEventListener("click", function () {
+          var nb = getBalance(); nb.cats = nb.cats.filter(function (x) { return x.id !== c.id; });
+          saveBalance(nb).then(openBalanceSetup);
+        });
+        row.appendChild(del);
+      }
+      s1.appendChild(row);
+    });
+    if (b.cats.length < 12) {
+      var add = document.createElement("button"); add.type = "button"; add.className = "detail-clear"; add.textContent = "+ Add area";
+      add.addEventListener("click", function () {
+        var nb = getBalance(); nb.cats.push({ id: "c" + Date.now().toString(36), name: "New area" });
+        saveBalance(nb).then(openBalanceSetup);
+      });
+      s1.appendChild(add);
+    }
+    body.appendChild(s1);
+
+    var s2 = document.createElement("div"); s2.className = "setup-section";
+    var h2 = document.createElement("h3"); h2.textContent = "Which area does each folder count toward?"; s2.appendChild(h2);
+    (function walk(parentId, depth) {
+      childFolders(parentId).forEach(function (f) {
+        var row = document.createElement("div"); row.className = "setup-row";
+        row.style.paddingLeft = Math.min(depth, 5) * 14 + "px";
+        var nm = document.createElement("span"); nm.className = "setup-folder-name";
+        nm.textContent = (depth ? "\u21B3 " : "") + f.name;
+        var extra;
+        if (parentOf(f)) {
+          var inherited = categoryForFolder(parentOf(f), b);
+          var inhName = inherited ? (b.cats.filter(function (c) { return c.id === inherited; })[0] || {}).name : "not counted";
+          extra = [["", "Same as parent (" + inhName + ")"], ["none", "Not counted"]];
+        } else {
+          extra = [["", "Not counted"]];
+        }
+        var cur = b.map[f.id] || "";
+        var sel = catSelect(cur, b.cats, extra, function (v) {
+          var nb = getBalance();
+          if (v) nb.map[f.id] = v; else delete nb.map[f.id];
+          saveBalance(nb).then(openBalanceSetup);
+        });
+        row.appendChild(nm); row.appendChild(sel);
+        s2.appendChild(row);
+        walk(f.id, depth + 1);
+      });
+    })(null, 0);
+    body.appendChild(s2);
+
+    var titles = {};
+    state.balanceEvents.forEach(function (ev) { var k = eventKey(ev); if (k) titles[k] = ev.summary; });
+    Object.keys(b.events).forEach(function (k) { if (!titles[k]) titles[k] = k; });
+    var keys = Object.keys(titles).sort();
+    if (keys.length) {
+      var s3 = document.createElement("div"); s3.className = "setup-section";
+      var h3 = document.createElement("h3"); h3.textContent = "Calendar events"; s3.appendChild(h3);
+      keys.forEach(function (k) {
+        var row = document.createElement("div"); row.className = "setup-row";
+        var nm = document.createElement("span"); nm.className = "setup-folder-name"; nm.textContent = titles[k];
+        var cur = b.events[k] === undefined ? "" : b.events[k];
+        var sel = catSelect(cur, b.cats, [["", "Not sorted yet"], ["none", "Not counted"]], function (v) {
+          var nb = getBalance();
+          if (v) nb.events[k] = v; else delete nb.events[k];
+          saveBalance(nb);
+        });
+        row.appendChild(nm); row.appendChild(sel);
+        s3.appendChild(row);
+      });
+      body.appendChild(s3);
+    }
+
+    var acts = document.createElement("div"); acts.className = "modal-actions"; acts.style.marginTop = "16px";
+    var done = document.createElement("button"); done.type = "button"; done.className = "modal-btn primary"; done.textContent = "Done";
+    done.addEventListener("click", closeSheet);
+    acts.appendChild(done);
+    body.appendChild(acts);
+  }
+
+  function sortEventsWithClaude(unsorted, button) {
+    var keys = Object.keys(unsorted).slice(0, 60);
+    if (!keys.length || !ai.sample) return;
+    var b = getBalance();
+    button.disabled = true; button.textContent = "Sorting\u2026";
+    var prompt = "Sort calendar events into life areas for a personal balance tracker.\n\nAREAS (id: name):\n" +
+      b.cats.map(function (c) { return c.id + ": " + c.name; }).join("\n") +
+      "\n\nEVENT TITLES:\n" + keys.map(function (k, i) { return (i + 1) + ". " + unsorted[k]; }).join("\n") +
+      "\n\nReturn JSON only: an object mapping each event number (as a string) to one area id, or null if it clearly fits none. Example: {\"1\": \"career\", \"2\": null}";
+    ai.sample.json(prompt, { modelTier: "quick" }).then(function (res) {
+      var nb = getBalance(), n = 0;
+      keys.forEach(function (k, i) {
+        var v = res && res[String(i + 1)];
+        if (v === null) { nb.events[k] = "none"; n++; }
+        else if (typeof v === "string" && nb.cats.some(function (c) { return c.id === v; })) { nb.events[k] = v; n++; }
+      });
+      return saveBalance(nb).then(function () {
+        showToast("Sorted " + n + " event" + (n === 1 ? "" : "s") + ". Check them in Set up areas.", null, null, 5000);
+      });
+    }, function (e) {
+      var code = (e && e.code) || "upstream_error";
+      if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].indexOf(code) >= 0) ai.off = true;
+      showToast(aiErrorText(code), null, null, 6000);
+      button.disabled = false; button.textContent = "Sort events with Claude";
+    });
+  }
+
+  function startBalanceGCalWatch() {
+    if (state.unsubBalanceGCal) return;
+    if (!(window.claude && window.claude.use)) { state.balanceGCalStatus = "unavailable"; return; }
+    window.claude.use("mcp").then(function (mcp) {
+      if (!mcp) { state.balanceGCalStatus = "unavailable"; renderDial(); return; }
+      var end = new Date(), start = new Date(end.getTime() - 7 * 86400000);
+      start.setHours(0, 0, 0, 0);
+      var input = { startTime: start.toISOString(), endTime: end.toISOString(), pageSize: 250 };
+      state.unsubBalanceGCal = mcp.watchTool("Google Calendar", "list_events", input, function (ev) {
+        if (ev.type === "data") {
+          var payload = (ev.result && ev.result.payload) || {};
+          var events = Array.isArray(payload.events) ? payload.events : [];
+          state.balanceEvents = events.filter(function (e) {
+            return e && e.status !== "cancelled" && e.start && e.start.dateTime && e.end && e.end.dateTime;
+          });
+          state.balanceGCalStatus = "ok";
+        } else {
+          state.balanceGCalStatus = "unavailable";
+          state.balanceEvents = [];
+        }
+        renderDial();
+      }, { refetchInterval: 600000 });
+    }).catch(function () { state.balanceGCalStatus = "unavailable"; renderDial(); });
+  }
+  function stopBalanceGCalWatch() {
+    if (state.unsubBalanceGCal) { state.unsubBalanceGCal(); state.unsubBalanceGCal = null; }
+  }
+
+  function updateFaceChrome() {
+    var bal = state.dialFace === "balance";
+    els.dialFaceToggle.querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-face") === state.dialFace); });
+    els.balancePanel.hidden = !bal;
+    if (bal) { els.dialTaskListWrap.hidden = true; els.dialCalendarNote.hidden = true; }
+    else els.dialTaskListWrap.hidden = !state.dialTasksExpanded;
+    els.dialSvg.setAttribute("aria-label", bal ? "Life balance over the last 7 days" : "Today's tasks on a 24-hour dial");
+  }
+
+  function switchDialFace(face) {
+    state.dialFace = face;
+    if (face === "balance") startBalanceGCalWatch();
+    renderDial();
+  }
+
+  els.dialFaceToggle.querySelectorAll("button").forEach(function (b) {
+    b.addEventListener("click", function () { switchDialFace(b.getAttribute("data-face")); });
+  });
+  els.balanceBackdrop.addEventListener("click", closeSheet);
+
+
+  // ---------------- Reminders ----------------
+
+  var REMIND_OPTIONS = [["default", "Default"], ["off", "Off"], [0, "At due"], [15, "15 min"], [60, "1 hour"], [1440, "1 day"]];
+  var firedReminders = loadFired();
+  var reminderTimer = null;
+  var audioCtx = null;
+
+  function loadFired() {
+    try { var raw = localStorage.getItem("notepad_reminders_v1"); if (raw) return JSON.parse(raw); } catch (e) {}
+    return {};
+  }
+  function saveFired() {
+    var cutoff = Date.now() - 3 * 86400000;
+    Object.keys(firedReminders).forEach(function (k) { if (firedReminders[k].at < cutoff) delete firedReminders[k]; });
+    try { localStorage.setItem("notepad_reminders_v1", JSON.stringify(firedReminders)); } catch (e) {}
+  }
+  function reminderKey(n) { return n.id + "@" + n.dueAt; }
+
+  function leadMinutesFor(n) {
+    if (n.remind === "off") return null;
+    if (typeof n.remind === "number") return n.remind;
+    var g = state.settings.remindLead;
+    if (g === undefined || g === null) g = 15;
+    return g < 0 ? null : g;
+  }
+
+  function buildReminderField(n) {
+    var field = document.createElement("div");
+    field.className = "detail-field";
+    var lbl = document.createElement("label"); lbl.textContent = "Reminder";
+    var row = document.createElement("div"); row.className = "repeat-row";
+    var current = (n.remind === undefined || n.remind === null) ? "default" : n.remind;
+    REMIND_OPTIONS.forEach(function (opt) {
+      var pill = document.createElement("button");
+      pill.type = "button";
+      pill.className = "repeat-pill" + (current === opt[0] ? " active" : "");
+      var label = opt[1];
+      if (opt[0] === "default") {
+        var g = state.settings.remindLead === undefined ? 15 : state.settings.remindLead;
+        label = "Default (" + (g < 0 ? "off" : g === 0 ? "at due" : g >= 1440 ? "1 day" : g >= 60 ? (g / 60) + " hr" : g + " min") + ")";
+      }
+      pill.textContent = label;
+      pill.addEventListener("click", function () { store.updateNote(n.id, { remind: opt[0] === "default" ? null : opt[0] }); });
+      row.appendChild(pill);
+    });
+    field.appendChild(lbl); field.appendChild(row);
+    if (!n.dueAt) {
+      var hint = document.createElement("div");
+      hint.className = "toggle-sub"; hint.style.marginTop = "6px";
+      hint.textContent = "Set a due date above for a reminder to go off.";
+      field.appendChild(hint);
+    }
+    return field;
+  }
+
+  function unlockAudio() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!audioCtx) audioCtx = new AC();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    } catch (e) {}
+  }
+  function playChime() {
+    try {
+      if (!audioCtx || audioCtx.state !== "running") return;
+      var t = audioCtx.currentTime;
+      [880, 1175].forEach(function (freq, i) {
+        var osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.type = "sine"; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, t + i * 0.18);
+        gain.gain.exponentialRampToValueAtTime(0.25, t + i * 0.18 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.18 + 0.35);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(t + i * 0.18); osc.stop(t + i * 0.18 + 0.4);
+      });
+    } catch (e) {}
+  }
+
+  function notifySupported() { return typeof window.Notification === "function"; }
+  function renderNotifyRow() {
+    if (!notifySupported()) {
+      els.notifyBtn.hidden = true;
+      els.notifySub.textContent = "Not available in this browser \u2014 in-app alerts still work";
+      return;
+    }
+    var perm = window.Notification.permission;
+    els.notifyBtn.hidden = perm !== "default";
+    els.notifySub.textContent = perm === "granted" ? "On \u2014 alerts also appear when this tab is in the background"
+      : perm === "denied" ? "Blocked \u2014 change it in your browser's site settings"
+      : "Also alert through your browser";
+  }
+
+  function remindTimingText(n) {
+    var diff = n.dueAt - Date.now();
+    if (diff > 60000) return "Due in " + formatDuration(diff);
+    if (diff > -60000) return "Due now";
+    return formatDuration(-diff) + " overdue";
+  }
+
+  function showReminderCard(n) {
+    var key = reminderKey(n);
+    if (els.reminderStack.querySelector('[data-key="' + key + '"]')) return;
+    var card = document.createElement("div");
+    card.className = "reminder-card";
+    card.setAttribute("data-key", key);
+    var title = document.createElement("div");
+    title.className = "reminder-title";
+    title.textContent = "\u23F0 " + remindTimingText(n);
+    var text = document.createElement("div");
+    text.className = "reminder-text";
+    text.textContent = n.text;
+    var actions = document.createElement("div");
+    actions.className = "reminder-actions";
+    function closeCard() {
+      card.remove();
+      els.reminderStack.hidden = !els.reminderStack.children.length;
+    }
+    var openBtn = document.createElement("button");
+    openBtn.type = "button"; openBtn.className = "detail-clear"; openBtn.textContent = "Open";
+    openBtn.addEventListener("click", function () { closeCard(); jumpToNote(n); });
+    var snoozeBtn = document.createElement("button");
+    snoozeBtn.type = "button"; snoozeBtn.className = "detail-clear"; snoozeBtn.textContent = "Snooze 10 min";
+    snoozeBtn.addEventListener("click", function () {
+      firedReminders[key] = { at: Date.now(), snoozeUntil: Date.now() + 600000 };
+      saveFired(); closeCard();
+    });
+    var doneBtn = document.createElement("button");
+    doneBtn.type = "button"; doneBtn.className = "detail-clear"; doneBtn.textContent = "Dismiss";
+    doneBtn.addEventListener("click", closeCard);
+    actions.appendChild(openBtn); actions.appendChild(snoozeBtn); actions.appendChild(doneBtn);
+    card.appendChild(title); card.appendChild(text); card.appendChild(actions);
+    els.reminderStack.appendChild(card);
+    els.reminderStack.hidden = false;
+  }
+
+  function fireReminder(n) {
+    showReminderCard(n);
+    playChime();
+    try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
+    try {
+      if (notifySupported() && window.Notification.permission === "granted" && document.hidden) {
+        new window.Notification("\u23F0 " + remindTimingText(n), { body: n.text, tag: reminderKey(n) });
+      }
+    } catch (e) {}
+  }
+
+  function checkReminders() {
+    if (!store) return;
+    var now = Date.now();
+    var changed = false;
+    state.allNotesForDial.forEach(function (n) {
+      if (!n.dueAt || n.done || n.type === "note") return;
+      var lead = leadMinutesFor(n);
+      if (lead === null) return;
+      var key = reminderKey(n);
+      var rec = firedReminders[key];
+      var fireAt = n.dueAt - lead * 60000;
+      if (rec && !rec.snoozeUntil) return;
+      if (rec && rec.snoozeUntil) { if (now < rec.snoozeUntil) return; }
+      else if (now < fireAt) return;
+      if (now > n.dueAt + 30 * 60000 && !(rec && rec.snoozeUntil)) return;
+      firedReminders[key] = { at: now };
+      changed = true;
+      fireReminder(n);
+    });
+    if (changed) saveFired();
+  }
+
+  function startReminderEngine() {
+    if (reminderTimer) return;
+    reminderTimer = setInterval(checkReminders, 20000);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) checkReminders(); });
+    ["pointerdown", "keydown", "touchstart"].forEach(function (ev) {
+      document.addEventListener(ev, unlockAudio, { passive: true });
+    });
+    checkReminders();
+  }
+
+  els.remindLeadSelect.addEventListener("change", function () {
+    store.setSettings(Object.assign({}, state.settings, { remindLead: parseInt(els.remindLeadSelect.value, 10) }));
+  });
+  els.notifyBtn.addEventListener("click", function () {
+    if (!notifySupported()) return;
+    try {
+      var r = window.Notification.requestPermission(function () { renderNotifyRow(); });
+      if (r && typeof r.then === "function") r.then(renderNotifyRow, renderNotifyRow);
+    } catch (e) { renderNotifyRow(); }
+  });
 
   // ---------------- Backup: export / import (merge) ----------------
 
@@ -2102,6 +3404,18 @@
         else if (itemStamp(n) > itemStamp(existing)) { updated++; ops.push(function () { return store.upsertNote(n); }); }
       });
 
+      var ib = backup.settings && backup.settings.balance;
+      if (ib && typeof ib === "object") {
+        ops.push(function () {
+          var nb = getBalance(), had = !!state.settings.balance, changed = false;
+          if (!had && Array.isArray(ib.cats) && ib.cats.length) { nb.cats = ib.cats; changed = true; }
+          ["map", "events"].forEach(function (k) {
+            Object.keys(ib[k] || {}).forEach(function (key) { if (nb[k][key] === undefined) { nb[k][key] = ib[k][key]; changed = true; } });
+          });
+          Object.keys(ib.checkins || {}).forEach(function (wk) { if (!nb.checkins[wk]) { nb.checkins[wk] = ib.checkins[wk]; changed = true; updated++; } });
+          return changed ? saveBalance(nb) : null;
+        });
+      }
       return ops.reduce(function (p, op) { return p.then(op); }, Promise.resolve()).then(function () {
         return { added: added, updated: updated };
       });
@@ -2142,13 +3456,7 @@
 
   // ---------------- Folder actions ----------------
 
-  els.newFolderBtn.addEventListener("click", function () {
-    openModal({ title: "New folder", hasInput: true, placeholder: "Folder name", confirmText: "Create" }).then(function (name) {
-      if (typeof name === "string" && name.trim()) {
-        store.addFolder(name.trim()).then(function (id) { if (id) { selectFolder(id); closeSidebarOnMobile(); } });
-      }
-    });
-  });
+  els.newFolderBtn.addEventListener("click", function () { promptNewFolder(null); });
 
   els.folderMenuBtn.addEventListener("click", function () {
     var f = state.folders.filter(function (x) { return x.id === state.currentFolderId; })[0];
@@ -2159,8 +3467,13 @@
     }).then(function (result) {
       if (result === null) return;
       if (result === "__secondary__") {
-        openModal({ title: "Delete folder?", message: 'Delete "' + f.name + '" and everything in it? This can\'t be undone.', confirmText: "Delete", danger: true }).then(function (confirmed) {
-          if (confirmed) store.deleteFolder(f.id);
+        var subs = descendantIds(f.id);
+        var msg = 'Delete "' + f.name + '" and everything in it' +
+          (subs.length ? ", including " + subs.length + (subs.length === 1 ? " subfolder" : " subfolders") : "") +
+          "? This can't be undone.";
+        openModal({ title: "Delete folder?", message: msg, confirmText: "Delete", danger: true }).then(function (confirmed) {
+          if (!confirmed) return;
+          subs.concat([f.id]).reduce(function (p, id) { return p.then(function () { return store.deleteFolder(id); }); }, Promise.resolve());
         });
         return;
       }
@@ -2226,12 +3539,19 @@
       state.settings = settings;
       applyTheme(settings.themeId);
       if (!els.settingsPanel.hidden) renderSwatches();
+      checkReminders();
     });
+    startAllNotesSubscription();
+    startReminderEngine();
   }
 
   if (window.claude && typeof window.claude.use === "function") {
-    window.claude.use("db").then(function (db) {
-      if (db) boot(makeDbStore(db));
+    Promise.all([
+      window.claude.use("db").catch(function () { return null; }),
+      window.claude.use("user").then(function (u) { return u ? u.id() : null; }).catch(function () { return null; })
+    ]).then(function (r) {
+      var db = r[0], uid = r[1];
+      if (db && uid) boot(makeDbStore(db, uid));
       else { els.syncNote.hidden = false; boot(makeLocalStore()); }
     }).catch(function () { els.syncNote.hidden = false; boot(makeLocalStore()); });
   } else {
