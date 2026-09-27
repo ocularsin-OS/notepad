@@ -259,6 +259,11 @@
   .record-btn.recording { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
   .rec-indicator { color: var(--danger); font-size: 13px; font-variant-numeric: tabular-nums; }
 
+  .all-group-head { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); padding: 14px 4px 6px; list-style: none; }
+  .all-group-head.overdue { color: #C2410C; }
+  .note-folder-tag { color: var(--text-dim); max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .filter-tabs[hidden] { display: none; }
+  .folder-row.all-row .folder-btn { font-weight: 600; }
   .empty-state { color: var(--text-dim); font-size: 14.5px; padding: 24px 4px; text-align: center; }
 
   .dial-wrap { display: flex; flex-direction: column; align-items: center; padding: 22px 4px 44px; }
@@ -1093,7 +1098,7 @@
     }).then(function (result) {
       if (result && result.hasDate && result.dueAt) {
         var ms = Date.parse(result.dueAt);
-        if (!isNaN(ms) && ms > Date.now() - 24 * 3600 * 1000) store.updateNote(noteId, { dueAt: ms });
+        if (!isNaN(ms) && ms > Date.now() - 24 * 3600 * 1000) store.updateNote(noteId, { dueAt: ms, dueSetAt: Date.now() });
       }
     }).catch(function () {});
   }
@@ -1303,7 +1308,7 @@
   }
 
   function renderSubfolderStrip() {
-    var kids = state.currentFolderId ? childFolders(state.currentFolderId) : [];
+    var kids = state.currentFolderId && !isAllView() ? childFolders(state.currentFolderId) : [];
     els.subfolderStrip.innerHTML = "";
     els.subfolderStrip.hidden = !kids.length || state.viewMode !== "list";
     kids.forEach(function (k) {
@@ -1317,8 +1322,10 @@
   }
 
   function renderFolderTitle() {
-    var path = state.currentFolderId ? folderPath(state.currentFolderId) : [];
     els.folderTitle.innerHTML = "";
+    els.folderMenuBtn.hidden = isAllView();
+    if (isAllView()) { els.folderTitle.textContent = "All tasks"; return; }
+    var path = state.currentFolderId ? folderPath(state.currentFolderId) : [];
     if (!path.length) { els.folderTitle.textContent = "Notepad"; return; }
     if (path.length > 1) {
       var crumb = document.createElement("span");
@@ -1331,11 +1338,21 @@
 
   function renderFolders() {
     els.folderList.innerHTML = "";
+    var allRow = document.createElement("div");
+    allRow.className = "folder-row all-row" + (isAllView() ? " active" : "");
+    var allCaret = document.createElement("span"); allCaret.className = "folder-caret empty";
+    var allBtn = document.createElement("button"); allBtn.className = "folder-btn"; allBtn.textContent = "\uD83D\uDCCB All tasks";
+    allBtn.addEventListener("click", function () {
+      if (state.viewMode !== "list") setViewMode("list");
+      selectFolder(ALL_VIEW); closeSidebarOnMobile();
+    });
+    allRow.appendChild(allCaret); allRow.appendChild(allBtn);
+    els.folderList.appendChild(allRow);
     renderFolderBranch(null, 0);
     renderSubfolderStrip();
     if (state.currentFolderId && folderById(state.currentFolderId)) renderFolderTitle();
 
-    if (state.currentFolderId && !state.folders.some(function (f) { return f.id === state.currentFolderId; })) {
+    if (state.currentFolderId && !isAllView() && !state.folders.some(function (f) { return f.id === state.currentFolderId; })) {
       state.currentFolderId = state.folders.length ? state.folders[0].id : null;
       if (state.currentFolderId) selectFolder(state.currentFolderId);
       else { els.folderTitle.textContent = "Notepad"; renderNotes(); }
@@ -1345,7 +1362,8 @@
       state.autoCreatedDefault = true;
       store.addFolder("General").then(function (id) { if (id) selectFolder(id); });
     } else if (!state.currentFolderId && state.folders.length) {
-      selectFolder(state.folders[0].id);
+      // Open on the All tasks view so everything due is visible at a glance.
+      selectFolder(ALL_VIEW);
     }
   }
 
@@ -1396,7 +1414,7 @@
     textarea.value = n.text;
     textarea.addEventListener("focus", function () { state.editingNoteId = n.id; });
     textarea.addEventListener("blur", function () {
-      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(renderNotes, 50); }
+      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(function () { renderNotes(); checkReminders(); }, 50); }
       var v = textarea.value.trim();
       if (v && v !== n.text) store.updateNote(n.id, { text: v });
     });
@@ -1404,6 +1422,125 @@
     wrap.appendChild(bodyField);
     wrap.appendChild(buildMoveRow(n));
     return wrap;
+  }
+
+  // ---------------- Notes on a task ----------------
+
+  function linkedNotesFor(n) {
+    if (!Array.isArray(n.linkedNotes) || !n.linkedNotes.length) return [];
+    var all = state.allNotesForDial || [];
+    return n.linkedNotes.map(function (id) { return all.filter(function (x) { return x.id === id; })[0]; }).filter(Boolean);
+  }
+
+  function buildTaskNotesField(n) {
+    var field = document.createElement("div");
+    field.className = "detail-field";
+    var lbl = document.createElement("label"); lbl.textContent = "Notes";
+    field.appendChild(lbl);
+
+    var ta = document.createElement("textarea");
+    ta.className = "note-body-textarea";
+    ta.rows = 3;
+    ta.placeholder = "Jot anything about this task\u2026";
+    ta.value = n.memo || "";
+    var timer = null;
+    function saveMemo() {
+      clearTimeout(timer); timer = null;
+      var v = ta.value.replace(/\s+$/, "");
+      if (v !== (n.memo || "")) { n.memo = v; store.updateNote(n.id, { memo: v || null }); }
+    }
+    ta.addEventListener("focus", function () { state.editingNoteId = n.id; });
+    ta.addEventListener("input", function () {
+      ta.style.height = ""; ta.style.height = Math.min(ta.scrollHeight, 320) + "px";
+      clearTimeout(timer); timer = setTimeout(saveMemo, 700);
+    });
+    ta.addEventListener("blur", function () {
+      saveMemo();
+      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(function () { renderNotes(); checkReminders(); }, 50); }
+    });
+    field.appendChild(ta);
+    setTimeout(function () { if (ta.value) { ta.style.height = Math.min(ta.scrollHeight, 320) + "px"; } }, 0);
+
+    var linked = linkedNotesFor(n);
+    if (linked.length) {
+      var list = document.createElement("div"); list.className = "repeat-row"; list.style.marginTop = "8px";
+      linked.forEach(function (ln) {
+        var chip = document.createElement("span");
+        chip.className = "repeat-pill"; chip.style.display = "inline-flex"; chip.style.alignItems = "center"; chip.style.gap = "6px";
+        var open = document.createElement("button");
+        open.type = "button"; open.style.cssText = "background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+        var first = String(ln.text || "").split("\n")[0];
+        open.textContent = "\uD83D\uDDD2\uFE0F " + (first.length > 40 ? first.slice(0, 39) + "\u2026" : first);
+        open.title = "Open note";
+        open.addEventListener("click", function () { jumpToNote(ln); });
+        var x = document.createElement("button");
+        x.type = "button"; x.textContent = "\u00D7"; x.setAttribute("aria-label", "Detach note");
+        x.style.cssText = "background:none;border:0;padding:0 2px;color:inherit;font-size:15px;cursor:pointer;";
+        x.addEventListener("click", function () {
+          store.updateNote(n.id, { linkedNotes: n.linkedNotes.filter(function (id) { return id !== ln.id; }) });
+        });
+        chip.appendChild(open); chip.appendChild(x);
+        list.appendChild(chip);
+      });
+      field.appendChild(list);
+    }
+
+    var attach = document.createElement("button");
+    attach.type = "button"; attach.className = "detail-clear"; attach.style.marginTop = "8px";
+    attach.textContent = "\uD83D\uDCCE Attach a saved note";
+    attach.addEventListener("click", function () { openAttachNotePicker(n); });
+    field.appendChild(attach);
+    return field;
+  }
+
+  function openAttachNotePicker(n) {
+    var body = openSheet("Attach a note");
+    var already = Array.isArray(n.linkedNotes) ? n.linkedNotes : [];
+    var notes = (state.allNotesForDial || []).filter(function (x) {
+      return x.type === "note" && already.indexOf(x.id) < 0 && folderById(x.folderId);
+    }).sort(function (a, b) { return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0); });
+
+    var search = document.createElement("input");
+    search.type = "search"; search.placeholder = "Search notes\u2026";
+    search.className = "note-body-textarea"; search.style.minHeight = "0"; search.style.marginBottom = "10px";
+    body.appendChild(search);
+    var list = document.createElement("div");
+    body.appendChild(list);
+
+    function draw() {
+      var q = search.value.trim().toLowerCase();
+      list.innerHTML = "";
+      var shown = notes.filter(function (x) { return !q || String(x.text).toLowerCase().indexOf(q) >= 0; }).slice(0, 80);
+      if (!shown.length) {
+        var empty = document.createElement("div"); empty.className = "toggle-sub"; empty.style.padding = "8px 2px";
+        empty.textContent = notes.length ? "No notes match." : "You don't have any saved notes yet. Use + Note in any folder, or type in this task's Notes box.";
+        list.appendChild(empty);
+      }
+      shown.forEach(function (x) {
+        var row = document.createElement("button");
+        row.type = "button"; row.className = "setup-row";
+        row.style.cssText = "width:100%;text-align:left;display:block;background:none;border:0;border-bottom:1px solid var(--border);padding:10px 2px;cursor:pointer;color:var(--text);font:inherit;";
+        var t = document.createElement("div");
+        var first = String(x.text || "").split("\n")[0];
+        t.textContent = first.length > 70 ? first.slice(0, 69) + "\u2026" : first;
+        var f = document.createElement("div"); f.className = "toggle-sub";
+        f.textContent = "\uD83D\uDCC1 " + folderPath(x.folderId).join(" \u203A ");
+        row.appendChild(t); row.appendChild(f);
+        row.addEventListener("click", function () {
+          store.updateNote(n.id, { linkedNotes: already.concat([x.id]) });
+          closeSheet();
+          showToast("Note attached");
+        });
+        list.appendChild(row);
+      });
+    }
+    search.addEventListener("input", draw);
+    draw();
+
+    var acts = document.createElement("div"); acts.className = "modal-actions"; acts.style.marginTop = "14px";
+    var cancel = document.createElement("button"); cancel.type = "button"; cancel.className = "modal-btn"; cancel.textContent = "Cancel";
+    cancel.addEventListener("click", closeSheet);
+    acts.appendChild(cancel); body.appendChild(acts);
   }
 
   function buildNoteDetail(n) {
@@ -1421,11 +1558,12 @@
       var v = textInput.value.trim();
       if (!v) textInput.value = n.text;
       else if (v !== n.text) store.updateNote(n.id, { text: v });
-      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(renderNotes, 50); }
+      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(function () { renderNotes(); checkReminders(); }, 50); }
     });
     textRow.appendChild(textInput);
     textField.appendChild(textLabel); textField.appendChild(textRow);
     wrap.appendChild(textField);
+    wrap.appendChild(buildTaskNotesField(n));
     wrap.appendChild(buildColorField(n, "Task color"));
 
     var dueField = document.createElement("div");
@@ -1437,10 +1575,10 @@
     dueInput.value = n.dueAt ? toLocalInputValue(n.dueAt) : "";
     dueInput.addEventListener("focus", function () { state.editingNoteId = n.id; });
     dueInput.addEventListener("blur", function () {
-      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(renderNotes, 50); }
+      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(function () { renderNotes(); checkReminders(); }, 50); }
     });
     dueInput.addEventListener("change", function () {
-      var patch = { dueAt: fromLocalInputValue(dueInput.value) };
+      var patch = { dueAt: fromLocalInputValue(dueInput.value), dueSetAt: Date.now() };
       if (n.repeat && n.repeat.freq) patch.repeat = { freq: n.repeat.freq, interval: n.repeat.interval || 1 };
       store.updateNote(n.id, patch);
     });
@@ -1484,7 +1622,7 @@
       intervalInput.value = (n.repeat && n.repeat.interval) || 1;
       intervalInput.addEventListener("focus", function () { state.editingNoteId = n.id; });
       intervalInput.addEventListener("blur", function () {
-        if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(renderNotes, 50); }
+        if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(function () { renderNotes(); checkReminders(); }, 50); }
       });
       intervalInput.addEventListener("change", function () {
         var v = parseInt(intervalInput.value, 10);
@@ -1513,7 +1651,7 @@
     phoneInput.value = n.phone || "";
     phoneInput.addEventListener("focus", function () { state.editingNoteId = n.id; });
     phoneInput.addEventListener("blur", function () {
-      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(renderNotes, 50); }
+      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(function () { renderNotes(); checkReminders(); }, 50); }
     });
     phoneInput.addEventListener("change", function () {
       var v = phoneInput.value.trim();
@@ -1541,7 +1679,7 @@
     emailInput.value = n.email || "";
     emailInput.addEventListener("focus", function () { state.editingNoteId = n.id; });
     emailInput.addEventListener("blur", function () {
-      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(renderNotes, 50); }
+      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(function () { renderNotes(); checkReminders(); }, 50); }
     });
     emailInput.addEventListener("change", function () {
       var v = emailInput.value.trim();
@@ -1569,7 +1707,7 @@
     linkInput.value = n.url || "";
     linkInput.addEventListener("focus", function () { state.editingNoteId = n.id; });
     linkInput.addEventListener("blur", function () {
-      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(renderNotes, 50); }
+      if (state.editingNoteId === n.id) { state.editingNoteId = null; setTimeout(function () { renderNotes(); checkReminders(); }, 50); }
     });
     linkInput.addEventListener("change", function () {
       var v = linkInput.value.trim();
@@ -1631,6 +1769,7 @@
     wrap.appendChild(dueField);
     wrap.appendChild(repeatField);
     wrap.appendChild(buildReminderField(n));
+    wrap.appendChild(buildAreasField(n));
     wrap.appendChild(phoneField);
     wrap.appendChild(emailField);
     wrap.appendChild(linkField);
@@ -1699,6 +1838,15 @@
         copyBtn.title = "Copy link";
         copyBtn.addEventListener("click", function (ev) { ev.stopPropagation(); copyToClipboard(normalized); });
         badges.appendChild(copyBtn);
+      }
+      var attachedCount = linkedNotesFor(n).length;
+      if ((n.memo && n.memo.trim()) || attachedCount) {
+        var mb = document.createElement("span");
+        mb.className = "badge";
+        mb.textContent = "\uD83D\uDDD2\uFE0F " + (n.memo && n.memo.trim() ? "Notes" : "") +
+          (attachedCount ? ((n.memo && n.memo.trim()) ? " + " : "") + attachedCount + " attached" : "");
+        mb.title = n.memo ? n.memo.slice(0, 200) : "";
+        badges.appendChild(mb);
       }
       if (n.voice) {
         var vb = document.createElement("span");
@@ -1820,9 +1968,76 @@
     return p;
   }
 
+  var ALL_VIEW = "__all__";
+  function isAllView() { return state.currentFolderId === ALL_VIEW; }
+
+  // Where new tasks go while the All tasks view is open.
+  function addTargetFolderId() {
+    if (!isAllView()) return state.currentFolderId;
+    var top = state.folders.filter(function (f) { return !parentOf(f); });
+    var gen = top.filter(function (f) { return /^general$/i.test(f.name.trim()); })[0];
+    return (gen || top[0] || state.folders[0] || {}).id || null;
+  }
+
+  function renderAllTasks() {
+    els.noteList.innerHTML = "";
+    var now = new Date(), t0 = new Date(now); t0.setHours(0, 0, 0, 0);
+    var day = 86400000, today = t0.getTime();
+    var groups = [
+      { key: "overdue", title: "Overdue", test: function (d) { return d < Date.now(); } },
+      { key: "today", title: "Today", test: function (d) { return d < today + day; } },
+      { key: "tomorrow", title: "Tomorrow", test: function (d) { return d < today + 2 * day; } },
+      { key: "week", title: "Next 7 days", test: function (d) { return d < today + 8 * day; } },
+      { key: "later", title: "Later", test: function () { return true; } }
+    ];
+    var tasks = (state.allNotesForDial || []).filter(function (n) { return n.type !== "note" && !n.done && folderById(n.folderId); });
+    var dated = tasks.filter(function (n) { return n.dueAt; }).sort(function (a, b) { return a.dueAt - b.dueAt; });
+    var undated = tasks.filter(function (n) { return !n.dueAt; }).sort(function (a, b) { return a.createdAt - b.createdAt; });
+    var buckets = {};
+    dated.forEach(function (n) {
+      for (var i = 0; i < groups.length; i++) { if (groups[i].test(n.dueAt)) { (buckets[groups[i].key] = buckets[groups[i].key] || []).push(n); break; } }
+    });
+    function head(title, cls) {
+      var h = document.createElement("li"); h.className = "all-group-head" + (cls ? " " + cls : ""); h.textContent = title;
+      els.noteList.appendChild(h);
+    }
+    function row(n) {
+      var li = buildNoteRow(n);
+      var host = li.querySelector(".badges");
+      if (!host) {
+        var content = li.querySelector(".note-content");
+        if (content) { host = document.createElement("div"); host.className = "badges"; content.appendChild(host); }
+      }
+      if (host) {
+        var tag = document.createElement("span"); tag.className = "badge note-folder-tag";
+        tag.textContent = "\uD83D\uDCC1 " + folderPath(n.folderId).join(" \u203A ");
+        host.appendChild(tag);
+      }
+      els.noteList.appendChild(li);
+    }
+    groups.forEach(function (g) {
+      var list = buckets[g.key]; if (!list || !list.length) return;
+      head(g.title + " \u00B7 " + list.length, g.key === "overdue" ? "overdue" : "");
+      list.forEach(row);
+    });
+    if (state.showUndatedInAll && undated.length) { head("No due date \u00B7 " + undated.length); undated.forEach(row); }
+    if (undated.length) {
+      var tgl = document.createElement("li"); tgl.style.listStyle = "none"; tgl.style.padding = "10px 4px";
+      var b = document.createElement("button"); b.type = "button"; b.className = "detail-clear";
+      b.textContent = state.showUndatedInAll ? "Hide tasks with no due date" : "Show " + undated.length + " task" + (undated.length === 1 ? "" : "s") + " with no due date";
+      b.addEventListener("click", function () { state.showUndatedInAll = !state.showUndatedInAll; renderNotes(); });
+      tgl.appendChild(b); els.noteList.appendChild(tgl);
+    }
+    els.emptyState.hidden = tasks.length !== 0;
+  }
+
   function renderNotes() {
     if (state.viewMode !== "list") return;
     if (state.editingNoteId) return;
+    els.filterTabs.hidden = isAllView();
+    var tgtF = folderById(addTargetFolderId());
+    els.addInput.placeholder = isAllView() && tgtF ? "Add a task to " + tgtF.name + "\u2026" : "Add a task\u2026";
+    if (isAllView()) { renderAllTasks(); return; }
     els.noteList.innerHTML = "";
     var sorted = state.notes
       .filter(function (n) { return state.listFilter === "all" || (n.type || "task") === state.listFilter; })
@@ -1845,6 +2060,7 @@
     if (unsubNotes) { unsubNotes(); unsubNotes = null; }
     state.notes = [];
     renderNotes();
+    if (id === ALL_VIEW) { startAllNotesSubscription(); renderNotes(); return; }
     if (id) unsubNotes = store.onNotesChange(id, function (notes) { state.notes = notes; renderNotes(); });
   }
 
@@ -1853,7 +2069,7 @@
   function jumpToNote(n) {
     setViewMode("list");
     state.expandedIds[n.id] = true;
-    if (n.folderId !== state.currentFolderId) selectFolder(n.folderId); else renderNotes();
+    if ((isAllView() && n.type !== "note") || n.folderId === state.currentFolderId) renderNotes(); else selectFolder(n.folderId);
     closeSidebarOnMobile();
     setTimeout(function () {
       var target = document.querySelector('[data-note-id="' + n.id + '"]');
@@ -2154,6 +2370,7 @@
     if (!state.unsubAllNotes) state.unsubAllNotes = store.onAllNotesChange(function (notes) {
       state.allNotesForDial = notes;
       checkReminders();
+      if (isAllView() && state.viewMode === "list") renderNotes();
       if (state.viewMode === "dial") renderDial();
       if (state.viewMode === "calendar") renderCalendarView();
     });
@@ -2190,10 +2407,10 @@
     qaBtn.type = "button"; qaBtn.textContent = "+"; qaBtn.setAttribute("aria-label", "Add task");
     var submitQuickAdd = function () {
       var text = qaInput.value.trim();
-      if (!text || !state.currentFolderId) return;
+      if (!text || !addTargetFolderId()) return;
       var due = new Date(selDate); due.setHours(9, 0, 0, 0);
       qaInput.value = "";
-      store.addNote(state.currentFolderId, text, null).then(function (id) {
+      store.addNote(addTargetFolderId(), text, null).then(function (id) {
         if (id) store.updateNote(id, { dueAt: due.getTime() });
       });
     };
@@ -2487,7 +2704,7 @@
   }
 
   function applyAction(a) {
-    var folderId = (a.folderId && folderById(a.folderId)) ? a.folderId : state.currentFolderId;
+    var folderId = (a.folderId && folderById(a.folderId)) ? a.folderId : addTargetFolderId();
     var dueMs = a.due ? new Date(a.due).getTime() : NaN;
     if (a.type === "add_task") {
       return store.addNote(folderId, String(a.text).slice(0, 500), null, "task").then(function (id) {
@@ -2696,6 +2913,65 @@
     return null;
   }
 
+  // An area value may be one id (older data) or a list of ids.
+  function areaList(v, b) {
+    var arr = Array.isArray(v) ? v : (v && v !== "none" ? [v] : []);
+    return arr.filter(function (id, i) { return arr.indexOf(id) === i && b.cats.some(function (c) { return c.id === id; }); });
+  }
+  function areasForTask(n, b) {
+    if (Array.isArray(n.areas) && n.areas.length) return areaList(n.areas, b);
+    var c = categoryForFolder(n.folderId, b);
+    return c ? [c] : [];
+  }
+
+  // Row of tappable area pills; any number can be on at once.
+  function areaChips(selected, cats, onChange) {
+    var row = document.createElement("div"); row.className = "repeat-row";
+    cats.forEach(function (c) {
+      var pill = document.createElement("button");
+      pill.type = "button";
+      var on = selected.indexOf(c.id) >= 0;
+      pill.className = "repeat-pill" + (on ? " active" : "");
+      pill.textContent = c.name;
+      pill.setAttribute("aria-pressed", on ? "true" : "false");
+      pill.addEventListener("click", function () {
+        var next = on ? selected.filter(function (x) { return x !== c.id; }) : selected.concat([c.id]);
+        onChange(next);
+      });
+      row.appendChild(pill);
+    });
+    return row;
+  }
+
+  function buildAreasField(n) {
+    var b = getBalance();
+    var field = document.createElement("div");
+    field.className = "detail-field";
+    var lbl = document.createElement("label"); lbl.textContent = "Balance areas";
+    field.appendChild(lbl);
+    var custom = Array.isArray(n.areas) && n.areas.length;
+    var selected = custom ? areaList(n.areas, b) : [];
+    var folderCat = categoryForFolder(n.folderId, b);
+    var folderName = folderCat ? (b.cats.filter(function (c) { return c.id === folderCat; })[0] || {}).name : null;
+
+    var row = areaChips(selected, b.cats, function (next) {
+      store.updateNote(n.id, { areas: next.length ? next : null });
+    });
+    var fromFolder = document.createElement("button");
+    fromFolder.type = "button";
+    fromFolder.className = "repeat-pill" + (custom ? "" : " active");
+    fromFolder.textContent = "Folder" + (folderName ? " (" + folderName + ")" : " (not counted)");
+    fromFolder.addEventListener("click", function () { store.updateNote(n.id, { areas: null }); });
+    row.insertBefore(fromFolder, row.firstChild);
+    field.appendChild(row);
+
+    var hint = document.createElement("div");
+    hint.className = "toggle-sub"; hint.style.marginTop = "6px";
+    hint.textContent = "Pick one or more. A finished task counts fully toward every area you pick.";
+    field.appendChild(hint);
+    return field;
+  }
+
   function computeBalance() {
     var b = getBalance();
     var now = Date.now(), from = now - 7 * 86400000;
@@ -2706,9 +2982,9 @@
       if (n.type === "note" || !n.done) return;
       var at = n.doneAt || n.updatedAt || 0;
       if (at < from || at > now) return;
-      var cat = categoryForFolder(n.folderId, b);
-      if (!cat) { unlinkedTasks++; return; }
-      stats[cat].tasks++; stats[cat].pts += 1;
+      var cats = areasForTask(n, b);
+      if (!cats.length) { unlinkedTasks++; return; }
+      cats.forEach(function (cat) { stats[cat].tasks++; stats[cat].pts += 1; });
     });
     var unsorted = {};
     state.balanceEvents.forEach(function (ev) {
@@ -2716,10 +2992,9 @@
       if (isNaN(s) || isNaN(e) || e <= from || s >= now) return;
       var hrs = Math.min(12, (Math.min(e, now) - Math.max(s, from)) / 3600000);
       if (hrs <= 0) return;
-      var key = eventKey(ev), cat = b.events[key];
-      if (cat === undefined) { if (key) unsorted[key] = ev.summary; return; }
-      if (!cat || cat === "none" || !stats[cat]) return;
-      stats[cat].hours += hrs; stats[cat].pts += hrs;
+      var key = eventKey(ev), v = b.events[key];
+      if (v === undefined) { if (key) unsorted[key] = ev.summary; return; }
+      areaList(v, b).forEach(function (cat) { stats[cat].hours += hrs; stats[cat].pts += hrs; });
     });
     var max = 0;
     b.cats.forEach(function (c) { max = Math.max(max, stats[c.id].pts); });
@@ -3049,13 +3324,15 @@
       keys.forEach(function (k) {
         var row = document.createElement("div"); row.className = "setup-row";
         var nm = document.createElement("span"); nm.className = "setup-folder-name"; nm.textContent = titles[k];
-        var cur = b.events[k] === undefined ? "" : b.events[k];
-        var sel = catSelect(cur, b.cats, [["", "Not sorted yet"], ["none", "Not counted"]], function (v) {
+        row.style.flexWrap = "wrap";
+        var chips = areaChips(areaList(b.events[k], b), b.cats, function (next) {
           var nb = getBalance();
-          if (v) nb.events[k] = v; else delete nb.events[k];
-          saveBalance(nb);
+          nb.events[k] = next.length ? next : "none";
+          saveBalance(nb).then(openBalanceSetup);
         });
-        row.appendChild(nm); row.appendChild(sel);
+        chips.style.width = "100%"; chips.style.marginTop = "6px";
+        if (b.events[k] === undefined) nm.textContent += " \u2014 not sorted yet";
+        row.appendChild(nm); row.appendChild(chips);
         s3.appendChild(row);
       });
       body.appendChild(s3);
@@ -3076,13 +3353,13 @@
     var prompt = "Sort calendar events into life areas for a personal balance tracker.\n\nAREAS (id: name):\n" +
       b.cats.map(function (c) { return c.id + ": " + c.name; }).join("\n") +
       "\n\nEVENT TITLES:\n" + keys.map(function (k, i) { return (i + 1) + ". " + unsorted[k]; }).join("\n") +
-      "\n\nReturn JSON only: an object mapping each event number (as a string) to one area id, or null if it clearly fits none. Example: {\"1\": \"career\", \"2\": null}";
+      "\n\nReturn JSON only: an object mapping each event number (as a string) to one area id, an array of area ids when it clearly fits more than one (e.g. playing pool with friends is recreation and social), or null if it clearly fits none. Example: {\"1\": \"career\", \"2\": [\"leisure\", \"social\"], \"3\": null}";
     ai.sample.json(prompt, { modelTier: "quick" }).then(function (res) {
       var nb = getBalance(), n = 0;
       keys.forEach(function (k, i) {
         var v = res && res[String(i + 1)];
         if (v === null) { nb.events[k] = "none"; n++; }
-        else if (typeof v === "string" && nb.cats.some(function (c) { return c.id === v; })) { nb.events[k] = v; n++; }
+        else { var list = areaList(v, nb); if (list.length) { nb.events[k] = list.length === 1 ? list[0] : list; n++; } }
       });
       return saveBalance(nb).then(function () {
         showToast("Sorted " + n + " event" + (n === 1 ? "" : "s") + ". Check them in Set up areas.", null, null, 5000);
@@ -3297,11 +3574,21 @@
     var changed = false;
     state.allNotesForDial.forEach(function (n) {
       if (!n.dueAt || n.done || n.type === "note") return;
+      // Don't fire while the due-date picker for this task is still open: iOS saves
+      // in-between values (often "right now") as you scroll the wheels.
+      if (state.editingNoteId === n.id && document.activeElement && document.activeElement !== document.body) return;
       var lead = leadMinutesFor(n);
       if (lead === null) return;
       var key = reminderKey(n);
       var rec = firedReminders[key];
       var fireAt = n.dueAt - lead * 60000;
+      // If the due date was set after its "remind me before" moment had already
+      // passed, remind at the due time instead of popping up the instant you save.
+      if (n.dueSetAt && fireAt < n.dueSetAt) fireAt = n.dueAt;
+      // Grace period: iPhone fills in "right now" the moment you touch an empty
+      // due date and saves each wheel turn. Wait until the date has sat unchanged
+      // for 2 minutes before any reminder can fire from a fresh edit.
+      if (n.dueSetAt && now - n.dueSetAt < 120000) return;
       if (rec && !rec.snoozeUntil) return;
       if (rec && rec.snoozeUntil) { if (now < rec.snoozeUntil) return; }
       else if (now < fireAt) return;
@@ -3522,7 +3809,8 @@
   els.addForm.addEventListener("submit", function (e) {
     e.preventDefault();
     var raw = els.addInput.value.trim();
-    if (!raw || !state.currentFolderId) return;
+    var targetId = addTargetFolderId();
+    if (!raw || !targetId) return;
 
     var urlMatch = raw.match(URL_RE);
     var url = null, text = raw;
@@ -3533,15 +3821,17 @@
     }
 
     els.addInput.value = "";
-    store.addNote(state.currentFolderId, text, url, "task").then(function (id) { if (id) trySmartAdd(id, raw); });
+    store.addNote(targetId, text, url, "task").then(function (id) { if (id) trySmartAdd(id, raw); });
   });
 
   els.addNoteForm.addEventListener("submit", function (e) {
     e.preventDefault();
     var text = els.addNoteInput.value.trim();
-    if (!text || !state.currentFolderId) return;
+    var targetId = addTargetFolderId();
+    if (!text || !targetId) return;
     els.addNoteInput.value = "";
-    store.addNote(state.currentFolderId, text, null, "note");
+    store.addNote(targetId, text, null, "note");
+    if (isAllView()) { var tf = folderById(targetId); showToast("Note saved to " + (tf ? tf.name : "folder")); }
   });
   els.addNoteInput.addEventListener("keydown", function (e) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); els.addNoteForm.requestSubmit ? els.addNoteForm.requestSubmit() : els.addNoteForm.dispatchEvent(new Event("submit", { cancelable: true })); }
