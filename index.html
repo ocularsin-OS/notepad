@@ -3390,8 +3390,40 @@
       cur.notes.forEach(function (n) { curNotes[n.id] = n; });
 
       var ops = [], added = 0, updated = 0;
-      backup.folders.forEach(function (f) {
-        if (!f || typeof f.id !== "string" || typeof f.name !== "string") return;
+      // Folders made separately on two devices get different ids. Match an unknown
+      // folder to an existing one with the same name under the same parent, so its
+      // contents land in the folder you already have instead of a duplicate.
+      var remap = {};
+      function normName(x) { return String(x || "").trim().toLowerCase(); }
+      function curKey(parentId, name) { return (parentId || "") + "\u0000" + normName(name); }
+      var byNameParent = {};
+      cur.folders.forEach(function (f) { var k = curKey(f.parentId, f.name); if (!byNameParent[k]) byNameParent[k] = f.id; });
+      var pending = backup.folders.filter(function (f) { return f && typeof f.id === "string" && typeof f.name === "string"; });
+      var ordered = [], placed = {}, guard = 0;
+      while (pending.length && guard++ < 1000) {
+        pending = pending.filter(function (f) {
+          var inBackup = f.parentId && backup.folders.some(function (g) { return g && g.id === f.parentId; });
+          if (inBackup && !placed[f.parentId]) return true;
+          ordered.push(f); placed[f.id] = true; return false;
+        });
+      }
+      ordered = ordered.concat(pending);
+      var incomingFolders = ordered.map(function (f) {
+        var pid = f.parentId ? (remap[f.parentId] || f.parentId) : f.parentId;
+        var g = pid !== f.parentId ? Object.assign({}, f, { parentId: pid }) : f;
+        if (!curFolders[g.id]) {
+          var match = byNameParent[curKey(g.parentId, g.name)];
+          if (match) { remap[g.id] = match; return null; }
+          byNameParent[curKey(g.parentId, g.name)] = g.id;
+        }
+        return g;
+      }).filter(Boolean);
+      Object.keys(remap).forEach(function (id) { knownFolderIds[id] = true; });
+      backup.notes = backup.notes.map(function (n) {
+        return (n && remap[n.folderId]) ? Object.assign({}, n, { folderId: remap[n.folderId] }) : n;
+      });
+
+      incomingFolders.forEach(function (f) {
         knownFolderIds[f.id] = true;
         var existing = curFolders[f.id];
         if (!existing) { added++; ops.push(function () { return store.upsertFolder(f); }); }
@@ -3410,7 +3442,10 @@
           var nb = getBalance(), had = !!state.settings.balance, changed = false;
           if (!had && Array.isArray(ib.cats) && ib.cats.length) { nb.cats = ib.cats; changed = true; }
           ["map", "events"].forEach(function (k) {
-            Object.keys(ib[k] || {}).forEach(function (key) { if (nb[k][key] === undefined) { nb[k][key] = ib[k][key]; changed = true; } });
+            Object.keys(ib[k] || {}).forEach(function (key) {
+              var dest = (k === "map" && remap[key]) ? remap[key] : key;
+              if (nb[k][dest] === undefined) { nb[k][dest] = ib[k][key]; changed = true; }
+            });
           });
           Object.keys(ib.checkins || {}).forEach(function (wk) { if (!nb.checkins[wk]) { nb.checkins[wk] = ib.checkins[wk]; changed = true; updated++; } });
           return changed ? saveBalance(nb) : null;
