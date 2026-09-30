@@ -521,6 +521,7 @@
       <p class="dial-caption" id="dialCaption"></p>
       <p class="dial-caption dial-sub" id="dialSubCaption"></p>
       <p class="dial-caption dial-sub" id="dialCalendarNote" hidden>Calendar not connected &mdash; showing tasks only</p>
+      <button id="dialGcalBtn" class="detail-clear" type="button" style="margin-top:10px" hidden>Connect Google Calendar</button>
       <div id="dialTaskListWrap" class="dial-task-list" hidden></div>
       <div id="balancePanel" class="balance-panel" hidden></div>
     </section>
@@ -583,6 +584,17 @@
       <div class="backup-actions" style="margin-top:0">
         <button id="geminiSaveBtn" class="detail-clear" type="button">Save &amp; test</button>
         <button id="geminiRemoveBtn" class="detail-clear" type="button" hidden>Remove key</button>
+      </div>
+    </div>
+  </div>
+  <div class="toggle-row" id="gcalRow" style="display:block" hidden>
+    <div class="toggle-title">Google Calendar</div>
+    <div class="toggle-sub" id="gcalStatus"></div>
+    <div class="gemini-form">
+      <input id="gcalClientId" type="text" placeholder="OAuth client ID (ends in .apps.googleusercontent.com)" autocomplete="off" spellcheck="false" style="border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:9px;padding:9px 11px;font-size:14px;outline:none;" />
+      <div class="backup-actions" style="margin-top:0">
+        <button id="gcalSaveBtn" class="detail-clear" type="button">Save client ID</button>
+        <button id="gcalConnectBtn" class="detail-clear" type="button">Connect</button>
       </div>
     </div>
   </div>
@@ -698,6 +710,12 @@
     dialCaption: document.getElementById("dialCaption"),
     dialSubCaption: document.getElementById("dialSubCaption"),
     dialCalendarNote: document.getElementById("dialCalendarNote"),
+    dialGcalBtn: document.getElementById("dialGcalBtn"),
+    gcalRow: document.getElementById("gcalRow"),
+    gcalStatus: document.getElementById("gcalStatus"),
+    gcalClientId: document.getElementById("gcalClientId"),
+    gcalSaveBtn: document.getElementById("gcalSaveBtn"),
+    gcalConnectBtn: document.getElementById("gcalConnectBtn"),
     dialTaskListWrap: document.getElementById("dialTaskListWrap"),
     calBtn: document.getElementById("calBtn"),
     calendarView: document.getElementById("calendarView"),
@@ -2154,7 +2172,17 @@
 
   function startGCalWatch() {
     if (state.unsubGCal) return;
-    if (!(window.claude && window.claude.use)) { state.gcalStatus = "unavailable"; return; }
+    if (!(window.claude && window.claude.use)) {
+      renderGcalButton();
+      if (!gcalConnected()) { state.gcalStatus = "unavailable"; state.gcalEvents = []; return; }
+      state.unsubGCal = gcalPoll(function () {
+        var s0 = new Date(); s0.setHours(0, 0, 0, 0);
+        var e0 = new Date(); e0.setHours(24, 0, 0, 0);
+        return [s0.getTime(), e0.getTime()];
+      }, function (evs) { state.gcalEvents = evs; state.gcalStatus = "ok"; renderDial(); },
+         function () { state.gcalStatus = "unavailable"; state.gcalEvents = []; renderGcalButton(); renderDial(); }, 300000);
+      return;
+    }
     window.claude.use("mcp").then(function (mcp) {
       if (!mcp) { state.gcalStatus = "unavailable"; renderDial(); return; }
       var dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
@@ -2617,6 +2645,7 @@
       els.swatchGrid.appendChild(b);
     });
     renderGeminiSettings();
+    renderGcalSettings();
     els.remindLeadSelect.value = String(state.settings.remindLead === undefined ? 15 : state.settings.remindLead);
     renderNotifyRow();
     els.smartAddToggle.textContent = state.settings.smartAdd ? "On" : "Off";
@@ -2694,6 +2723,10 @@
       "- Use real ids and folderIds from the data. If no folder is named, use the currently open folder. Due times are local time. The user taps a button to confirm each action, so never say it's already done.",
       "- Only include the actions block when the user asked for a change.",
       "",
+      (state.gcalEvents && state.gcalEvents.length ? "TODAY'S CALENDAR (read-only)\n" + state.gcalEvents.map(function (e) {
+        return "  - " + new Date(e.start.dateTime).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) + "\u2013" +
+          new Date(e.end.dateTime).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) + " " + clip(e.summary || "Busy", 120);
+      }).join("\n") + "\n" : ""),
       "THE USER'S FOLDERS, TASKS AND NOTES",
       data || "(nothing saved yet)"
     ].join("\n");
@@ -2890,6 +2923,10 @@
 
   function openAssistant() {
     if (!ai.turns.length) aiIntro();
+    if (!onClaudeHost && gcalConnected()) {
+      var s0 = new Date(); s0.setHours(0, 0, 0, 0); var e0 = new Date(); e0.setHours(24, 0, 0, 0);
+      gcalFetch(s0.getTime(), e0.getTime()).then(function (evs) { state.gcalEvents = evs; }, function () {});
+    }
     els.aiPanel.hidden = false;
     els.aiBackdrop.classList.add("open");
     setTimeout(function () { els.aiInput.focus(); }, 60);
@@ -3098,6 +3135,172 @@
 
 
   activateGemini();
+  // ---------------- Google Calendar (direct sign-in, for the standalone/GitHub version) ----------------
+  // Read-only access via Google sign-in. Client ID + short-lived token live only on this device.
+
+  var GCAL_STORE = "notepad_gcal_v1";
+  var GCAL_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+  var gcal = { tokenClient: null, loading: false, clientIdLoaded: null };
+
+  function loadGcalCfg() {
+    try { var raw = localStorage.getItem(GCAL_STORE); if (raw) return JSON.parse(raw) || {}; } catch (e) {}
+    return {};
+  }
+  function saveGcalCfg(cfg) { try { localStorage.setItem(GCAL_STORE, JSON.stringify(cfg || {})); } catch (e) {} }
+  function gcalConnected() { var c = loadGcalCfg(); return !!(c.token && c.exp && c.exp > Date.now() + 30000); }
+
+  // Load Google's sign-in script ahead of time, so the Connect tap can open the popup immediately
+  // (iPhone Safari blocks popups that don't open right on the tap).
+  function prepareGcal() {
+    if (onClaudeHost) return;
+    var cfg = loadGcalCfg();
+    if (!cfg.clientId || gcal.clientIdLoaded === cfg.clientId) return;
+    function init() {
+      try {
+        gcal.tokenClient = window.google.accounts.oauth2.initTokenClient({
+          client_id: cfg.clientId,
+          scope: GCAL_SCOPE,
+          callback: function (resp) {
+            if (!resp || resp.error || !resp.access_token) {
+              showToast("Google Calendar wasn't connected" + (resp && resp.error ? " (" + resp.error + ")." : "."), null, null, 5000);
+              return;
+            }
+            var c = loadGcalCfg();
+            c.token = resp.access_token;
+            c.exp = Date.now() + ((+resp.expires_in || 3600) - 60) * 1000;
+            c.everConnected = true;
+            saveGcalCfg(c);
+            showToast("Google Calendar connected \u2713");
+            refreshGcalViews();
+          },
+          error_callback: function (err) {
+            var t = err && err.type;
+            if (t === "popup_closed") return;
+            showToast(t === "popup_failed_to_open" ? "Your browser blocked Google's sign-in window. Allow pop-ups for this site and tap Connect again."
+              : "Couldn't open Google sign-in. Try again.", null, null, 6000);
+          }
+        });
+        gcal.clientIdLoaded = cfg.clientId;
+      } catch (e) { gcal.tokenClient = null; }
+      renderGcalButton();
+    }
+    if (window.google && window.google.accounts && window.google.accounts.oauth2) { init(); return; }
+    if (gcal.loading) return;
+    gcal.loading = true;
+    var sc = document.createElement("script");
+    sc.src = "https://accounts.google.com/gsi/client";
+    sc.async = true;
+    sc.onload = function () { gcal.loading = false; init(); };
+    sc.onerror = function () { gcal.loading = false; showToast("Couldn't load Google sign-in. Check your connection."); };
+    document.head.appendChild(sc);
+  }
+
+  function gcalConnect() {
+    var cfg = loadGcalCfg();
+    if (!cfg.clientId) {
+      showToast("Add your Google client ID in Settings \u2192 Google Calendar first.", null, null, 5000);
+      openSettings();
+      return;
+    }
+    if (!gcal.tokenClient) { prepareGcal(); showToast("Getting Google sign-in ready \u2014 tap Connect again in a moment."); return; }
+    gcal.tokenClient.requestAccessToken({ prompt: cfg.everConnected ? "" : "consent" });
+  }
+
+  function gcalDisconnect() {
+    var cfg = loadGcalCfg();
+    try { if (cfg.token && window.google && window.google.accounts) window.google.accounts.oauth2.revoke(cfg.token, function () {}); } catch (e) {}
+    delete cfg.token; delete cfg.exp; cfg.everConnected = false;
+    saveGcalCfg(cfg);
+    state.gcalEvents = []; state.balanceEvents = [];
+    refreshGcalViews();
+    showToast("Google Calendar disconnected on this device");
+  }
+
+  function gcalFetch(startMs, endMs) {
+    var cfg = loadGcalCfg();
+    if (!gcalConnected()) return Promise.reject({ code: "needs_auth" });
+    var url = "https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=250" +
+      "&timeMin=" + encodeURIComponent(new Date(startMs).toISOString()) + "&timeMax=" + encodeURIComponent(new Date(endMs).toISOString());
+    return fetch(url, { headers: { Authorization: "Bearer " + cfg.token } }).then(function (res) {
+      if (res.status === 401 || res.status === 403) {
+        var c = loadGcalCfg(); delete c.token; delete c.exp; saveGcalCfg(c);
+        throw { code: "needs_auth" };
+      }
+      if (!res.ok) throw { code: "upstream_error" };
+      return res.json();
+    }).then(function (data) {
+      return (data.items || []).filter(function (e) {
+        return e && e.status !== "cancelled" && e.start && e.start.dateTime && e.end && e.end.dateTime;
+      });
+    });
+  }
+
+  // Poll a range while a view is open; returns a stop function.
+  function gcalPoll(rangeFn, onEvents, onFail, everyMs) {
+    var stopped = false;
+    function tick() {
+      if (stopped) return;
+      var r = rangeFn();
+      gcalFetch(r[0], r[1]).then(function (evs) { if (!stopped) onEvents(evs); }, function (e) { if (!stopped) onFail(e); });
+    }
+    tick();
+    var t = setInterval(tick, everyMs);
+    return function () { stopped = true; clearInterval(t); };
+  }
+
+  function refreshGcalViews() {
+    if (state.unsubGCal) { state.unsubGCal(); state.unsubGCal = null; }
+    if (state.unsubBalanceGCal) { state.unsubBalanceGCal(); state.unsubBalanceGCal = null; }
+    if (state.viewMode === "dial") {
+      startGCalWatch();
+      if (state.dialFace === "balance") startBalanceGCalWatch();
+      renderDial();
+    }
+    renderGcalButton();
+    if (!els.settingsPanel.hidden) renderGcalSettings();
+  }
+
+  function renderGcalButton() {
+    if (onClaudeHost || !els.dialGcalBtn) { if (els.dialGcalBtn) els.dialGcalBtn.hidden = true; return; }
+    var connected = gcalConnected();
+    els.dialGcalBtn.hidden = connected;
+    els.dialGcalBtn.textContent = loadGcalCfg().everConnected ? "Reconnect Google Calendar" : "Connect Google Calendar";
+  }
+
+  function renderGcalSettings() {
+    if (onClaudeHost) { els.gcalRow.hidden = true; return; }
+    els.gcalRow.hidden = false;
+    var cfg = loadGcalCfg();
+    els.gcalClientId.value = cfg.clientId || "";
+    var connected = gcalConnected();
+    els.gcalStatus.textContent = !cfg.clientId ? "Paste the OAuth client ID from Google Cloud, then connect."
+      : connected ? "Connected (read-only). Google asks you to reconnect about once an hour."
+      : cfg.everConnected ? "Sign-in expired \u2014 tap Reconnect." : "Not connected yet.";
+    els.gcalConnectBtn.textContent = connected ? "Disconnect" : (cfg.everConnected ? "Reconnect" : "Connect");
+  }
+
+  els.gcalSaveBtn.addEventListener("click", function () {
+    var id = els.gcalClientId.value.trim();
+    if (id && !/\.apps\.googleusercontent\.com$/.test(id)) {
+      showToast("That doesn't look like a client ID \u2014 it should end in .apps.googleusercontent.com", null, null, 6000);
+      return;
+    }
+    var cfg = loadGcalCfg();
+    if (cfg.clientId !== id) { delete cfg.token; delete cfg.exp; cfg.everConnected = false; gcal.tokenClient = null; gcal.clientIdLoaded = null; }
+    cfg.clientId = id || undefined;
+    saveGcalCfg(cfg);
+    prepareGcal();
+    renderGcalSettings(); renderGcalButton();
+    showToast(id ? "Client ID saved. Tap Connect." : "Client ID removed");
+  });
+  els.gcalConnectBtn.addEventListener("click", function () {
+    if (gcalConnected()) gcalDisconnect(); else gcalConnect();
+  });
+  els.dialGcalBtn.addEventListener("click", gcalConnect);
+
+  prepareGcal();
+
+
 
   // ---------------- Balance face (lifestyle balance pie) ----------------
 
@@ -3409,7 +3612,7 @@
     btn(data.latestKey === weekKey(Date.now()) ? "Update this week's check-in" : "Weekly check-in", openCheckin);
     btn("Set up areas", openBalanceSetup);
     if (unsortedCount && ai.sample && !ai.off) {
-      var sortBtn = btn("Sort events with Claude", function () { sortEventsWithClaude(data.unsorted, sortBtn); });
+      var sortBtn = btn("Sort events with " + (ai.provider === "gemini" ? "Gemini" : "Claude"), function () { sortEventsWithClaude(data.unsorted, sortBtn); });
     }
     wrap.appendChild(actions);
   }
@@ -3598,13 +3801,21 @@
       var code = (e && e.code) || "upstream_error";
       if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].indexOf(code) >= 0) ai.off = true;
       showToast(aiErrorText(code), null, null, 6000);
-      button.disabled = false; button.textContent = "Sort events with Claude";
+      button.disabled = false; button.textContent = "Sort events with " + (ai.provider === "gemini" ? "Gemini" : "Claude");
     });
   }
 
   function startBalanceGCalWatch() {
     if (state.unsubBalanceGCal) return;
-    if (!(window.claude && window.claude.use)) { state.balanceGCalStatus = "unavailable"; return; }
+    if (!(window.claude && window.claude.use)) {
+      if (!gcalConnected()) { state.balanceGCalStatus = "unavailable"; state.balanceEvents = []; return; }
+      state.unsubBalanceGCal = gcalPoll(function () {
+        var end = Date.now(), start = new Date(end - 7 * 86400000); start.setHours(0, 0, 0, 0);
+        return [start.getTime(), end];
+      }, function (evs) { state.balanceEvents = evs; state.balanceGCalStatus = "ok"; renderDial(); },
+         function () { state.balanceGCalStatus = "unavailable"; state.balanceEvents = []; renderGcalButton(); renderDial(); }, 600000);
+      return;
+    }
     window.claude.use("mcp").then(function (mcp) {
       if (!mcp) { state.balanceGCalStatus = "unavailable"; renderDial(); return; }
       var end = new Date(), start = new Date(end.getTime() - 7 * 86400000);
