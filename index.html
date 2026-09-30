@@ -425,6 +425,17 @@
   .ai-panel[hidden] { display: none; }
   .ai-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 10px 16px; border-bottom: 1px solid var(--border); }
   .ai-head-title { flex: 1; font-size: 16px; font-weight: 650; }
+  .ai-badge { display: inline-block; margin-left: 8px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); vertical-align: middle; }
+  .ai-badge:empty { display: none; }
+  .ai-badge.warn { background: var(--danger-soft); color: var(--danger); }
+  .gemini-form { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+  .gemini-form input[type="password"] { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 9px; padding: 9px 11px; font-size: 14px; outline: none; }
+  .gemini-form input[type="password"]:focus { border-color: var(--accent); }
+  .gemini-warn { border: 1px solid var(--danger); background: var(--danger-soft); color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.45; }
+  .gemini-warn[hidden] { display: none; }
+  .gemini-warn strong { color: var(--danger); }
+  .gemini-warn label { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; font-weight: 600; cursor: pointer; }
+  .detail-clear[hidden] { display: none; }
   .ai-msgs { flex: 1; overflow-y: auto; padding: 14px 14px 6px; display: flex; flex-direction: column; gap: 10px; }
   .ai-msg { max-width: 88%; padding: 10px 13px; border-radius: 14px; font-size: 14.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
   .ai-msg.user { align-self: flex-end; background: var(--accent); color: var(--surface); border-bottom-right-radius: 4px; }
@@ -555,6 +566,26 @@
     </div>
     <button id="micCheckBtn" class="toggle-btn" type="button">Run</button>
   </div>
+  <div class="toggle-row" id="geminiRow" style="display:block" hidden>
+    <div class="toggle-title">AI assistant (Gemini)</div>
+    <div class="toggle-sub" id="geminiStatus"></div>
+    <div class="gemini-form">
+      <input id="geminiKey" type="password" placeholder="Paste your Gemini API key" autocomplete="off" spellcheck="false" />
+      <div class="repeat-row" id="geminiTierRow" role="group" aria-label="Key type">
+        <button type="button" class="repeat-pill" data-tier="paid">Paid key (billing on)</button>
+        <button type="button" class="repeat-pill" data-tier="free">Free key</button>
+      </div>
+      <div class="gemini-warn" id="geminiFreeWarn" hidden>
+        <strong>Free keys aren't private.</strong> On Google's free tier, Google may keep what the app sends &mdash; the text of your tasks and notes &mdash; use it to improve its AI, and people at Google may read it. Don't use a free key if your notes include anything private. A key with billing turned on (paid tier) isn't used for training.
+        <label><input type="checkbox" id="geminiAck" /> I understand my tasks and notes may be used by Google to train its AI.</label>
+      </div>
+      <div class="toggle-sub">The app can't tell which kind of key it is &mdash; pick the one that matches your Google AI Studio billing. Your key stays only on this device.</div>
+      <div class="backup-actions" style="margin-top:0">
+        <button id="geminiSaveBtn" class="detail-clear" type="button">Save &amp; test</button>
+        <button id="geminiRemoveBtn" class="detail-clear" type="button" hidden>Remove key</button>
+      </div>
+    </div>
+  </div>
   <div class="toggle-row">
     <div>
       <div class="toggle-title">Reminders</div>
@@ -605,7 +636,7 @@
 <div id="aiBackdrop" class="backdrop"></div>
 <aside id="aiPanel" class="ai-panel" hidden aria-label="Assistant">
   <div class="ai-head">
-    <span class="ai-head-title">&#10024; Assistant</span>
+    <span class="ai-head-title">&#10024; Assistant<span id="aiProviderBadge" class="ai-badge"></span></span>
     <button id="aiNewBtn" class="detail-clear" type="button">New chat</button>
     <button id="aiCloseBtn" class="icon-btn" type="button" aria-label="Close assistant">&times;</button>
   </div>
@@ -693,6 +724,15 @@
     aiSendBtn: document.getElementById("aiSendBtn"),
     aiNewBtn: document.getElementById("aiNewBtn"),
     aiCloseBtn: document.getElementById("aiCloseBtn"),
+    aiProviderBadge: document.getElementById("aiProviderBadge"),
+    geminiRow: document.getElementById("geminiRow"),
+    geminiStatus: document.getElementById("geminiStatus"),
+    geminiKey: document.getElementById("geminiKey"),
+    geminiTierRow: document.getElementById("geminiTierRow"),
+    geminiFreeWarn: document.getElementById("geminiFreeWarn"),
+    geminiAck: document.getElementById("geminiAck"),
+    geminiSaveBtn: document.getElementById("geminiSaveBtn"),
+    geminiRemoveBtn: document.getElementById("geminiRemoveBtn"),
     moveBackdrop: document.getElementById("moveBackdrop"),
     dialFaceToggle: document.getElementById("dialFaceToggle"),
     balancePanel: document.getElementById("balancePanel"),
@@ -1084,8 +1124,8 @@
   function trySmartAdd(noteId, rawText) {
     if (!state.settings.smartAdd) return;
     if (!DATE_HINT_RE.test(rawText)) return;
-    if (!(window.claude && window.claude.use)) return;
-    window.claude.use("sample").then(function (sample) {
+    if (!ai.sample) return;
+    Promise.resolve(ai.sample).then(function (sample) {
       if (!sample) return null;
       var nowIso = new Date().toISOString();
       var prompt = 'Current date and time (ISO 8601): ' + nowIso + '\n' +
@@ -1800,7 +1840,13 @@
       if (n.color && !n.done) check.style.borderColor = n.color;
       check.addEventListener("click", function (ev) {
         ev.stopPropagation();
-        if (!n.done) completeTask(n); else store.toggleNote(n.id, false);
+        if (n.done) { store.toggleNote(n.id, false); return; }
+        if (n.repeat && n.repeat.freq && n.dueAt) {
+          li.classList.add("done"); check.textContent = "\u2713";
+          setTimeout(function () { completeTask(n); }, 350);
+        } else {
+          completeTask(n);
+        }
       });
       main.appendChild(check);
     }
@@ -1956,16 +2002,21 @@
   els.moveBackdrop.addEventListener("click", closeMovePicker);
 
   function completeTask(n) {
-    var p = store.updateNote(n.id, { done: true, doneAt: Date.now() });
     if (n.repeat && n.repeat.freq && n.dueAt) {
+      // Repeating task: log the completion and roll the same task forward to its next due date.
+      var now = Date.now();
       var anchorDay = n.repeat.anchorDay || new Date(n.dueAt).getDate();
       var nextDue = advanceDate(n.dueAt, n.repeat.freq, n.repeat.interval, anchorDay);
+      var guard = 0;
+      while (nextDue <= now && guard++ < 1000) nextDue = advanceDate(nextDue, n.repeat.freq, n.repeat.interval, anchorDay);
+      var prev = { dueAt: n.dueAt, repeat: n.repeat, completions: Array.isArray(n.completions) ? n.completions.slice() : [], done: false };
+      var completions = prev.completions.concat([now]).slice(-60);
       var nextRepeat = { freq: n.repeat.freq, interval: n.repeat.interval || 1, anchorDay: anchorDay };
-      store.addNote(n.folderId, n.text, n.url, n.type || "task").then(function (id) {
-        if (id) store.updateNote(id, { dueAt: nextDue, color: n.color || null, repeat: nextRepeat, phone: n.phone || null, email: n.email || null, remind: (n.remind === undefined ? null : n.remind) });
+      return store.updateNote(n.id, { dueAt: nextDue, repeat: nextRepeat, completions: completions, done: false }).then(function () {
+        showToast("Done \u2713 Next one: " + formatDue(nextDue), "Undo", function () { store.updateNote(n.id, prev); }, 6000);
       });
     }
-    return p;
+    return store.updateNote(n.id, { done: true, doneAt: Date.now() });
   }
 
   var ALL_VIEW = "__all__";
@@ -2565,6 +2616,7 @@
       b.addEventListener("click", function () { store.setSettings(Object.assign({}, state.settings, { themeId: t.id })); });
       els.swatchGrid.appendChild(b);
     });
+    renderGeminiSettings();
     els.remindLeadSelect.value = String(state.settings.remindLead === undefined ? 15 : state.settings.remindLead);
     renderNotifyRow();
     els.smartAddToggle.textContent = state.settings.smartAdd ? "On" : "Off";
@@ -2581,7 +2633,7 @@
 
   // ---------------- Assistant (Claude) ----------------
 
-  var ai = { sample: null, turns: [], running: false, ctl: null, off: false };
+  var ai = { sample: null, provider: null, turns: [], running: false, ctl: null, off: false };
   var AI_SUGGESTIONS = ["What's due this week?", "Plan my day", "Summarize this folder", "Improve one of my prompts"];
 
   function pad2(x) { return (x < 10 ? "0" : "") + x; }
@@ -2775,6 +2827,7 @@
 
   function aiErrorText(code) {
     switch (code) {
+      case "bad_key": return "Google didn't accept the Gemini key. Check it in Settings \u2192 AI assistant.";
       case "not_granted": case "sampling_disabled": case "not_declared": case "capability_disabled": case "capability_removed":
         return "The assistant isn't allowed to run here. If you declined the permission prompt, reload the page to be asked again.";
       case "rate_limited": return "You've hit your Claude usage limit for the moment. Try again a bit later.";
@@ -2867,9 +2920,184 @@
 
   if (window.claude && typeof window.claude.use === "function") {
     window.claude.use("sample").then(function (fn) {
-      if (typeof fn === "function") { ai.sample = fn; els.aiBtn.hidden = false; }
+      if (typeof fn === "function") { ai.sample = fn; ai.provider = "claude"; els.aiBtn.hidden = false; updateAiBadge(); }
     }).catch(function () {});
   }
+  // ---------------- Gemini (for the standalone/GitHub version) ----------------
+  // The key and tier choice live only in this browser's storage: never synced, never in backups.
+
+  var GEMINI_STORE = "notepad_gemini_v1";
+  var GEMINI_MODELS = ["gemini-flash-latest", "gemini-2.5-flash"];
+  var onClaudeHost = !!(window.claude && typeof window.claude.use === "function");
+
+  function loadGeminiCfg() {
+    try { var raw = localStorage.getItem(GEMINI_STORE); if (raw) return JSON.parse(raw); } catch (e) {}
+    return null;
+  }
+  function saveGeminiCfg(cfg) {
+    try {
+      if (cfg) localStorage.setItem(GEMINI_STORE, JSON.stringify(cfg));
+      else localStorage.removeItem(GEMINI_STORE);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function geminiError(code, message) { var e = new Error(message || code); e.code = code; return e; }
+
+  function geminiCall(cfg, contents, opts) {
+    opts = opts || {};
+    var models = cfg.model ? [cfg.model] : GEMINI_MODELS.slice();
+    function attempt(i) {
+      var model = models[i];
+      var body = { contents: contents };
+      if (opts.json) body.generationConfig = { responseMimeType: "application/json" };
+      return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": cfg.key },
+        body: JSON.stringify(body),
+        signal: opts.signal
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+          if (res.status === 404 && i + 1 < models.length) return attempt(i + 1);
+          if (!res.ok) {
+            var msg = (data && data.error && data.error.message) || "";
+            if (res.status === 400 && /api key/i.test(msg)) throw geminiError("bad_key", msg);
+            if (res.status === 401 || res.status === 403) throw geminiError("bad_key", msg);
+            if (res.status === 429) throw geminiError("rate_limited", msg);
+            throw geminiError("upstream_error", msg);
+          }
+          if (!cfg.model) { cfg.model = model; saveGeminiCfg(cfg); }
+          var cand = data.candidates && data.candidates[0];
+          if (!cand && data.promptFeedback && data.promptFeedback.blockReason) throw geminiError("refused");
+          var text = cand && cand.content && cand.content.parts
+            ? cand.content.parts.map(function (p) { return p.text || ""; }).join("") : "";
+          if (!text) throw geminiError(cand && cand.finishReason === "SAFETY" ? "refused" : "empty_completion");
+          return text;
+        });
+      }, function (err) {
+        if (err && err.name === "AbortError") throw geminiError("cancelled");
+        throw geminiError("upstream_error", err && err.message);
+      });
+    }
+    return attempt(0);
+  }
+
+  // Same shape as the Claude sampler the rest of the app already uses.
+  function makeGeminiSample(cfg) {
+    function sample(messages, opts) {
+      opts = opts || {};
+      var contents = [];
+      (Array.isArray(messages) ? messages : [{ role: "user", content: String(messages) }]).forEach(function (m) {
+        var role = m.role === "assistant" ? "model" : "user";
+        var text = String(m.content || "");
+        var last = contents[contents.length - 1];
+        if (last && last.role === role) last.parts[0].text += "\n\n" + text;
+        else contents.push({ role: role, parts: [{ text: text }] });
+      });
+      return geminiCall(cfg, contents, { signal: opts.signal }).then(function (text) {
+        if (typeof opts.onText === "function") { try { opts.onText({ text: text, delta: text }); } catch (e) {} }
+        return { text: text, truncated: false };
+      });
+    }
+    sample.json = function (prompt) {
+      return geminiCall(cfg, [{ role: "user", parts: [{ text: String(prompt) + "\n\nRespond with JSON only." }] }], { json: true })
+        .then(function (text) {
+          try { return JSON.parse(text.replace(/```json|```/g, "").trim()); }
+          catch (e) { throw geminiError("upstream_error", "Bad JSON"); }
+        });
+    };
+    return sample;
+  }
+
+  function geminiReady(cfg) { return !!(cfg && cfg.key && (cfg.tier === "paid" || (cfg.tier === "free" && cfg.ack))); }
+
+  function updateAiBadge() {
+    var cfg = loadGeminiCfg();
+    var badge = els.aiProviderBadge;
+    if (ai.provider === "claude") { badge.textContent = "Claude"; badge.className = "ai-badge"; }
+    else if (ai.provider === "gemini") {
+      var free = cfg && cfg.tier === "free";
+      badge.textContent = free ? "Gemini \u00B7 free tier, not private" : "Gemini \u00B7 private";
+      badge.className = "ai-badge" + (free ? " warn" : "");
+    } else { badge.textContent = ""; badge.className = "ai-badge"; }
+  }
+
+  function activateGemini() {
+    if (onClaudeHost) return;
+    var cfg = loadGeminiCfg();
+    if (geminiReady(cfg)) {
+      ai.sample = makeGeminiSample(cfg);
+      ai.provider = "gemini";
+      ai.off = false;
+      els.aiInput.disabled = false;
+      els.aiBtn.hidden = false;
+    } else {
+      ai.sample = null; ai.provider = null;
+      els.aiBtn.hidden = true;
+    }
+    updateAiBadge();
+  }
+
+  var geminiDraftTier = null;
+  function renderGeminiSettings() {
+    if (onClaudeHost) { els.geminiRow.hidden = true; return; }
+    els.geminiRow.hidden = false;
+    var cfg = loadGeminiCfg();
+    if (geminiDraftTier === null) geminiDraftTier = cfg ? cfg.tier : "paid";
+    els.geminiKey.value = cfg ? cfg.key : "";
+    els.geminiTierRow.querySelectorAll("button").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-tier") === geminiDraftTier);
+    });
+    els.geminiFreeWarn.hidden = geminiDraftTier !== "free";
+    els.geminiAck.checked = !!(cfg && cfg.tier === "free" && cfg.ack);
+    els.geminiRemoveBtn.hidden = !cfg;
+    els.geminiStatus.textContent = !cfg ? "Add a Gemini API key to turn on the assistant and Smart Add."
+      : geminiReady(cfg) ? (cfg.tier === "free" ? "On \u2014 free tier (not private)" : "On \u2014 paid tier (private)")
+      : "Off \u2014 confirm the free-tier notice to turn it on.";
+  }
+
+  els.geminiTierRow.querySelectorAll("button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      geminiDraftTier = b.getAttribute("data-tier");
+      els.geminiTierRow.querySelectorAll("button").forEach(function (x) { x.classList.toggle("active", x === b); });
+      els.geminiFreeWarn.hidden = geminiDraftTier !== "free";
+    });
+  });
+
+  els.geminiSaveBtn.addEventListener("click", function () {
+    var key = els.geminiKey.value.trim();
+    if (!key) { showToast("Paste a Gemini API key first."); return; }
+    if (geminiDraftTier === "free" && !els.geminiAck.checked) {
+      showToast("Please read and check the free-tier notice first.", null, null, 5000);
+      return;
+    }
+    var cfg = { key: key, tier: geminiDraftTier, ack: geminiDraftTier === "free" ? true : false, model: null };
+    els.geminiSaveBtn.disabled = true; els.geminiSaveBtn.textContent = "Testing\u2026";
+    geminiCall(cfg, [{ role: "user", parts: [{ text: "Reply with just the word OK." }] }]).then(function () {
+      if (!saveGeminiCfg(cfg)) { showToast("Couldn't save the key on this device."); return; }
+      activateGemini();
+      showToast("Gemini connected \u2713", null, null, 3500);
+    }, function (e) {
+      var code = e && e.code;
+      showToast(code === "bad_key" ? "Google didn't accept that key. Check it and try again."
+        : code === "rate_limited" ? "The key works but hit its rate limit. Try again in a minute."
+        : "Couldn't reach Gemini. Check your connection and try again.", null, null, 6000);
+    }).then(function () {
+      els.geminiSaveBtn.disabled = false; els.geminiSaveBtn.textContent = "Save & test";
+      renderGeminiSettings();
+    });
+  });
+
+  els.geminiRemoveBtn.addEventListener("click", function () {
+    saveGeminiCfg(null);
+    geminiDraftTier = null;
+    activateGemini();
+    renderGeminiSettings();
+    showToast("Gemini key removed from this device");
+  });
+
+
+  activateGemini();
 
   // ---------------- Balance face (lifestyle balance pie) ----------------
 
@@ -2979,12 +3207,14 @@
     b.cats.forEach(function (c) { stats[c.id] = { tasks: 0, hours: 0, pts: 0 }; });
     var unlinkedTasks = 0;
     state.allNotesForDial.forEach(function (n) {
-      if (n.type === "note" || !n.done) return;
-      var at = n.doneAt || n.updatedAt || 0;
-      if (at < from || at > now) return;
+      if (n.type === "note") return;
+      var hits = 0;
+      (Array.isArray(n.completions) ? n.completions : []).forEach(function (ts) { if (ts >= from && ts <= now) hits++; });
+      if (n.done) { var at = n.doneAt || n.updatedAt || 0; if (at >= from && at <= now) hits++; }
+      if (!hits) return;
       var cats = areasForTask(n, b);
-      if (!cats.length) { unlinkedTasks++; return; }
-      cats.forEach(function (cat) { stats[cat].tasks++; stats[cat].pts += 1; });
+      if (!cats.length) { unlinkedTasks += hits; return; }
+      cats.forEach(function (cat) { stats[cat].tasks += hits; stats[cat].pts += hits; });
     });
     var unsorted = {};
     state.balanceEvents.forEach(function (ev) {
