@@ -428,6 +428,13 @@
   .ai-badge { display: inline-block; margin-left: 8px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); vertical-align: middle; }
   .ai-badge:empty { display: none; }
   .ai-badge.warn { background: var(--danger-soft); color: var(--danger); }
+  .ai-sources { align-self: flex-start; width: 88%; display: flex; flex-direction: column; gap: 6px; }
+  .ai-sources-label { font-size: 11.5px; color: var(--text-dim); font-weight: 600; }
+  .ai-sources-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ai-sources-list a { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); text-decoration: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ai-sources-list a:hover { border-color: var(--accent); color: var(--accent); }
+  .ai-search-chip { width: 100%; border: 0; height: 56px; background: transparent; }
+  .ai-note { align-self: flex-start; font-size: 12px; color: var(--text-dim); font-style: italic; }
   .gemini-form { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
   .gemini-form input[type="password"] { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 9px; padding: 9px 11px; font-size: 14px; outline: none; }
   .gemini-form input[type="password"]:focus { border-color: var(--accent); }
@@ -580,6 +587,11 @@
         <strong>Free keys aren't private.</strong> On Google's free tier, Google may keep what the app sends &mdash; the text of your tasks and notes &mdash; use it to improve its AI, and people at Google may read it. Don't use a free key if your notes include anything private. A key with billing turned on (paid tier) isn't used for training.
         <label><input type="checkbox" id="geminiAck" /> I understand my tasks and notes may be used by Google to train its AI.</label>
       </div>
+      <div class="setup-row" style="padding:0">
+        <span class="setup-folder-name">Let Gemini search the web</span>
+        <button id="geminiSearchToggle" class="toggle-btn" type="button">On</button>
+      </div>
+      <div class="toggle-sub">Uses Google Search when a question needs current or outside information. Google gives a monthly allowance of free searches, then charges a small amount per search.</div>
       <div class="toggle-sub">The app can't tell which kind of key it is &mdash; pick the one that matches your Google AI Studio billing. Your key stays only on this device.</div>
       <div class="backup-actions" style="margin-top:0">
         <button id="geminiSaveBtn" class="detail-clear" type="button">Save &amp; test</button>
@@ -751,6 +763,7 @@
     geminiAck: document.getElementById("geminiAck"),
     geminiSaveBtn: document.getElementById("geminiSaveBtn"),
     geminiRemoveBtn: document.getElementById("geminiRemoveBtn"),
+    geminiSearchToggle: document.getElementById("geminiSearchToggle"),
     moveBackdrop: document.getElementById("moveBackdrop"),
     dialFaceToggle: document.getElementById("dialFaceToggle"),
     balancePanel: document.getElementById("balancePanel"),
@@ -2711,7 +2724,9 @@
       "",
       "HOW TO ANSWER",
       "- Be brief and practical; the user is often on a phone. Plain text, short paragraphs or simple '-' lists. You may use **bold** sparingly.",
-      "- Only use the data below. If something isn't there, say so. Refer to tasks by their text, never by id.",
+      (ai.provider === "gemini" && (loadGeminiCfg() || {}).search !== false
+        ? "- For the user's own tasks, notes, and calendar, use only the data below. For questions about the outside world (suppliers, prices, how-tos, news, anything current), search the web and answer from what you find, naming where the information came from in plain words. Refer to tasks by their text, never by id."
+        : "- Only use the data below. You can't browse the web; if asked about outside or current information, say so briefly and answer from general knowledge with that caveat. Refer to tasks by their text, never by id."),
       "- You cannot change anything yourself. When the user asks you to add, complete, or reschedule something, briefly say what you'll propose, then end your reply with a fenced block exactly like this:",
       "```actions",
       '[{\"type\":\"add_task\",\"text\":\"...\",\"folderId\":\"...\",\"due\":\"YYYY-MM-DDTHH:MM or null\"},',
@@ -2878,6 +2893,48 @@
     els.aiSendBtn.setAttribute("aria-label", on ? "Stop" : "Send");
   }
 
+  function aiRenderSources(res) {
+    if (!res) return;
+    if (res.searchFailed) {
+      var note = document.createElement("div");
+      note.className = "ai-note";
+      note.textContent = "Web search isn't available with this Gemini key, so this answer didn't use the web.";
+      els.aiMsgs.appendChild(note);
+    }
+    var hasSources = res.sources && res.sources.length;
+    if (!hasSources && !res.searchHtml) { aiScroll(); return; }
+    var wrap = document.createElement("div");
+    wrap.className = "ai-sources";
+    if (hasSources) {
+      var label = document.createElement("div");
+      label.className = "ai-sources-label"; label.textContent = "Sources";
+      var list = document.createElement("div");
+      list.className = "ai-sources-list";
+      res.sources.forEach(function (src) {
+        var a = document.createElement("a");
+        a.href = src.uri; a.target = "_blank"; a.rel = "noopener noreferrer";
+        a.textContent = src.title;
+        list.appendChild(a);
+      });
+      wrap.appendChild(label); wrap.appendChild(list);
+    }
+    if (res.searchHtml) {
+      // Google's required Search Suggestions chip, isolated in a frame so its styles can't leak.
+      var frame = document.createElement("iframe");
+      frame.className = "ai-search-chip";
+      frame.setAttribute("sandbox", "allow-popups allow-popups-to-escape-sandbox allow-same-origin");
+      frame.setAttribute("title", "Google Search suggestions");
+      frame.srcdoc = '<base target="_blank"><style>body{margin:0}</style>' + res.searchHtml;
+      frame.addEventListener("load", function () {
+        try { var h = frame.contentDocument.body.scrollHeight; if (h) frame.style.height = Math.min(h + 4, 160) + "px"; } catch (e) {}
+        aiScroll();
+      });
+      wrap.appendChild(frame);
+    }
+    els.aiMsgs.appendChild(wrap);
+    aiScroll();
+  }
+
   function aiSend(text) {
     text = String(text || "").trim();
     if (!text || ai.running || ai.off || !ai.sample) return;
@@ -2903,6 +2960,7 @@
       var actions = aiParseActions(full);
       ai.turns.push({ role: "assistant", content: visible + (actions.length ? "\n[Proposed " + actions.length + " change(s) for the user to confirm.]" : "") });
       aiRenderActions(actions);
+      aiRenderSources(res);
     }, function (e) {
       var code = (e && e.code) || "upstream_error";
       var partial = e && e.text ? aiVisibleText(e.text) : "";
@@ -2988,6 +3046,7 @@
       var model = models[i];
       var body = { contents: contents };
       if (opts.json) body.generationConfig = { responseMimeType: "application/json" };
+      if (opts.search && !opts.noSearchRetry) body.tools = [{ google_search: {} }];
       return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": cfg.key },
@@ -2998,6 +3057,11 @@
           if (res.status === 404 && i + 1 < models.length) return attempt(i + 1);
           if (!res.ok) {
             var msg = (data && data.error && data.error.message) || "";
+            if (opts.search && !opts.noSearchRetry && !/api key/i.test(msg) && res.status !== 401) {
+              // Search isn't available for this key/model: answer without the web and say so.
+              opts.noSearchRetry = true; opts.searchFailed = true;
+              return attempt(i);
+            }
             if (res.status === 400 && /api key/i.test(msg)) throw geminiError("bad_key", msg);
             if (res.status === 401 || res.status === 403) throw geminiError("bad_key", msg);
             if (res.status === 429) throw geminiError("rate_limited", msg);
@@ -3009,6 +3073,7 @@
           var text = cand && cand.content && cand.content.parts
             ? cand.content.parts.map(function (p) { return p.text || ""; }).join("") : "";
           if (!text) throw geminiError(cand && cand.finishReason === "SAFETY" ? "refused" : "empty_completion");
+          if (opts.withMeta) return { text: text, meta: (cand && cand.groundingMetadata) || null, searchFailed: !!opts.searchFailed };
           return text;
         });
       }, function (err) {
@@ -3031,9 +3096,21 @@
         if (last && last.role === role) last.parts[0].text += "\n\n" + text;
         else contents.push({ role: role, parts: [{ text: text }] });
       });
-      return geminiCall(cfg, contents, { signal: opts.signal }).then(function (text) {
+      return geminiCall(cfg, contents, { signal: opts.signal, search: cfg.search !== false, withMeta: true }).then(function (r) {
+        var text = r.text, meta = r.meta || {};
         if (typeof opts.onText === "function") { try { opts.onText({ text: text, delta: text }); } catch (e) {} }
-        return { text: text, truncated: false };
+        var seen = {}, sources = [];
+        (meta.groundingChunks || []).forEach(function (c) {
+          var web = c && c.web; if (!web || !web.uri) return;
+          var title = web.title || web.uri;
+          if (seen[title]) return; seen[title] = true;
+          sources.push({ title: title, uri: web.uri });
+        });
+        return {
+          text: text, truncated: false, sources: sources.slice(0, 6),
+          searchHtml: (meta.searchEntryPoint && meta.searchEntryPoint.renderedContent) || "",
+          searchFailed: r.searchFailed
+        };
       });
     }
     sample.json = function (prompt) {
@@ -3088,6 +3165,9 @@
     els.geminiFreeWarn.hidden = geminiDraftTier !== "free";
     els.geminiAck.checked = !!(cfg && cfg.tier === "free" && cfg.ack);
     els.geminiRemoveBtn.hidden = !cfg;
+    var searchOn = !cfg || cfg.search !== false;
+    els.geminiSearchToggle.textContent = searchOn ? "On" : "Off";
+    els.geminiSearchToggle.classList.toggle("on", searchOn);
     els.geminiStatus.textContent = !cfg ? "Add a Gemini API key to turn on the assistant and Smart Add."
       : geminiReady(cfg) ? (cfg.tier === "free" ? "On \u2014 free tier (not private)" : "On \u2014 paid tier (private)")
       : "Off \u2014 confirm the free-tier notice to turn it on.";
@@ -3108,7 +3188,8 @@
       showToast("Please read and check the free-tier notice first.", null, null, 5000);
       return;
     }
-    var cfg = { key: key, tier: geminiDraftTier, ack: geminiDraftTier === "free" ? true : false, model: null };
+    var oldCfg = loadGeminiCfg();
+    var cfg = { key: key, tier: geminiDraftTier, ack: geminiDraftTier === "free" ? true : false, model: null, search: oldCfg ? oldCfg.search !== false : true };
     els.geminiSaveBtn.disabled = true; els.geminiSaveBtn.textContent = "Testing\u2026";
     geminiCall(cfg, [{ role: "user", parts: [{ text: "Reply with just the word OK." }] }]).then(function () {
       if (!saveGeminiCfg(cfg)) { showToast("Couldn't save the key on this device."); return; }
@@ -3123,6 +3204,16 @@
       els.geminiSaveBtn.disabled = false; els.geminiSaveBtn.textContent = "Save & test";
       renderGeminiSettings();
     });
+  });
+
+  els.geminiSearchToggle.addEventListener("click", function () {
+    var cfg = loadGeminiCfg();
+    if (!cfg) { showToast("Save your Gemini key first."); return; }
+    cfg.search = cfg.search === false ? true : false;
+    saveGeminiCfg(cfg);
+    activateGemini();
+    renderGeminiSettings();
+    showToast(cfg.search ? "Gemini can search the web" : "Web search turned off");
   });
 
   els.geminiRemoveBtn.addEventListener("click", function () {
